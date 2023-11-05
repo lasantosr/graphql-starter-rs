@@ -1,0 +1,105 @@
+[package]
+name = "graphql-starter"
+description = "GraphQL starter kit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["full"]
+
+# Includes all features
+full = ["graphql", "config", "tracing", "auth", "sqlx", "error-info-summary", "ansi", "chrono"]
+
+# GraphQL module
+graphql = ["dep:async-graphql", "dep:async-graphql-axum", "dep:indexmap", "paste"]
+
+# Config module
+config = ["dep:figment"]
+
+# Tracing module
+tracing = [
+    "dep:tracing-subscriber",
+    "tracing-subscriber?/env-filter",
+    "dep:parking_lot",
+    "dep:tokio",
+    "dep:tokio-stream",
+    "tokio?/sync",
+    "tokio-stream?/sync",
+]
+
+# Auth module
+auth = ["macros", "graphql-starter-macros?/subject"]
+
+# SQLx utils module
+sqlx = ["macros", "graphql-starter-macros?/sqlx"]
+
+# Include error info summary
+error-info-summary = ["error-info/summary", "dep:linkme"]
+
+# ANSI utilities
+ansi = ["dep:strip-ansi-escapes", "dep:ansi-to-html", "dep:regex"]
+
+# Allows to build an https server
+https = ["dep:futures-util", "dep:axum-server", "axum-server?/tls-rustls"]
+
+# Chrono utils
+chrono = ["dep:chrono"]
+
+# Re-exports the paste crate
+paste = ["dep:paste"]
+
+# Re-export starter macros
+macros = ["dep:graphql-starter-macros"]
+
+[dependencies]
+graphql-starter-macros = { workspace = true, optional = true }
+
+anyhow        = { workspace = true }
+async-trait   = { workspace = true }
+axum          = { workspace = true }
+base64        = { workspace = true }
+bytes         = { workspace = true }
+error-info    = { workspace = true }
+http          = { workspace = true }
+hyper         = { workspace = true }
+iter-flow     = { workspace = true }
+mime          = { workspace = true }
+once_cell     = { workspace = true }
+serde         = { workspace = true, features = ["derive"] }
+serde_json    = { workspace = true }
+tower         = { workspace = true }
+tower-http    = { workspace = true, features = ["trace", "cors"] }
+tracing       = { workspace = true }
+tracing-error = { workspace = true }
+ulid          = { workspace = true }
+uuid          = { workspace = true }
+
+ansi-to-html       = { workspace = true, optional = true }
+async-graphql      = { workspace = true, optional = true }
+async-graphql-axum = { workspace = true, optional = true }
+axum-server        = { workspace = true, optional = true }
+chrono             = { workspace = true, optional = true }
+figment            = { workspace = true, optional = true, features = ["env", "toml"] }
+futures-util       = { workspace = true, optional = true }
+indexmap           = { workspace = true, optional = true }
+linkme             = { workspace = true, optional = true }
+parking_lot        = { workspace = true, optional = true }
+paste              = { workspace = true, optional = true }
+regex              = { workspace = true, optional = true }
+strip-ansi-escapes = { workspace = true, optional = true }
+tokio              = { workspace = true, optional = true }
+tokio-stream       = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true }
+
+[dev-dependencies]
+chrono  = { workspace = true, features = ["serde"] }
+figment = { workspace = true, features = ["test"] }
+sqlx    = { workspace = true, features = ["postgres", "macros", "chrono"] }
+tokio   = { workspace = true, features = ["time", "macros", "rt-multi-thread"] }

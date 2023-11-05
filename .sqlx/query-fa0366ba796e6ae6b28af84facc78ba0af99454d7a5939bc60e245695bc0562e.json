@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM (SELECT * FROM (SELECT * FROM \"todo\") as q WHERE \"timestamp\" < $2 OR (\"timestamp\" = $2 AND \"id\" > $3) ORDER BY \"timestamp\" DESC, \"id\" ASC LIMIT $1) as o ORDER BY \"timestamp\" ASC, \"id\" DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "timestamp",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 2,
+        "name": "item",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Timestamp",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "fa0366ba796e6ae6b28af84facc78ba0af99454d7a5939bc60e245695bc0562e"
+}
