@@ -119,6 +119,29 @@ impl QueriedFields {
         }
     }
 
+    /// Checks if there are other fiends queried not present on the list.
+    ///
+    /// This method will return true always if all fields are queried, no matter if you manually provide all of them.
+    ///
+    /// # Examples:
+    /// ``` rust
+    /// # use graphql_starter::queried_fields::QueriedFields;
+    /// let query = QueriedFields::from(vec!["a", "b", "c"]);
+    ///
+    /// assert!(query.other_than(&["a", "b"]));
+    /// assert!(!query.other_than(&["a", "b", "c"]));
+    /// ```
+    pub fn other_than(&self, fields: &[&str]) -> bool {
+        match self {
+            QueriedFields::All => true,
+            QueriedFields::Fields(queried_fields) => !queried_fields
+                .iter()
+                .filter(|f| !fields.contains(&f.as_str()))
+                .collect::<Vec<_>>()
+                .is_empty(),
+        }
+    }
+
     /// Returns the [QueriedFields] for a given child field.
     ///
     /// ## Examples:
@@ -166,6 +189,7 @@ impl QueriedFields {
     ///
     /// assert!(query.nodes().contains("a"));
     /// assert!(query.nodes().contains("b"));
+    /// assert!(!query.nodes().contains("c"));
     /// ```
     pub fn nodes(&self) -> QueriedFields {
         match self {
