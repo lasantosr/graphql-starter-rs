@@ -22,7 +22,7 @@ pub enum GenericErrorCode {
 pub struct Error {
     pub(super) info: Arc<dyn ErrorInfo + Send + Sync + 'static>,
     pub(super) reason: Option<String>,
-    pub(super) properties: Option<HashMap<String, String>>,
+    pub(super) properties: Option<HashMap<String, serde_json::Value>>,
     pub(super) unexpected: bool,
     pub(super) source: Option<Arc<dyn fmt::Display + Send + Sync>>,
     pub(super) context: SpanTrace,
@@ -76,10 +76,10 @@ impl Error {
     }
 
     /// Appends a property to the error
-    pub fn with_property(mut self, key: &str, value: &str) -> Self {
+    pub fn with_property(mut self, key: &str, value: serde_json::Value) -> Self {
         self.properties
             .get_or_insert_with(HashMap::new)
-            .insert(key.to_string(), value.to_string());
+            .insert(key.to_string(), value);
         self
     }
 
@@ -104,7 +104,7 @@ impl Error {
     }
 
     /// Returns the internal properties
-    pub fn properties(&self) -> Option<&HashMap<String, String>> {
+    pub fn properties(&self) -> Option<&HashMap<String, serde_json::Value>> {
         self.properties.as_ref()
     }
 
@@ -202,11 +202,19 @@ impl<T, E: fmt::Display + Send + Sync + 'static> MapToErr<T> for Result<T, E> {
 
 /// Utility trait to extend a [Result]
 pub trait ResultExt {
+    /// Appends an string property to the error side of the result
+    fn with_str_property(self, key: &str, value: impl Into<String>) -> Self
+    where
+        Self: Sized,
+    {
+        self.with_property(key, serde_json::Value::String(value.into()))
+    }
+
     /// Appends a property to the error side of the result
-    fn with_property(self, key: &str, value: &str) -> Self;
+    fn with_property(self, key: &str, value: serde_json::Value) -> Self;
 }
 impl<T> ResultExt for Result<T> {
-    fn with_property(self, key: &str, value: &str) -> Self {
+    fn with_property(self, key: &str, value: serde_json::Value) -> Self {
         self.map_err(|err| err.with_property(key, value).boxed())
     }
 }

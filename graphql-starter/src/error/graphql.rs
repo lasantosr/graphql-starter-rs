@@ -29,10 +29,13 @@ impl GraphQLError {
     }
 
     /// Appends a property to the error
-    pub fn with_property(self, key: &str, value: &str) -> Self {
+    pub fn with_property(self, key: &str, value: serde_json::Value) -> Self {
         match self {
             Self::Async(err, ctx) => {
-                let err = err.extend_with(|_, e| e.set(key, value));
+                let err = err.extend_with(|_, e| match async_graphql::Value::try_from(value) {
+                    Ok(value) => e.set(key, value),
+                    Err(err) => tracing::error!("Couldn't deserialize error value: {err}"),
+                });
                 Self::Async(err, ctx)
             }
             Self::Custom(err) => {
@@ -167,8 +170,8 @@ impl From<GraphQLError> for async_graphql::Error {
                         extensions: None,
                     }
                     .extend_with(|_, e| {
-                        if let Some(prop) = err.properties.as_ref() {
-                            for (k, v) in prop.iter() {
+                        if let Some(prop) = err.properties {
+                            for (k, v) in prop.into_iter() {
                                 if k == "statusCode"
                                     || k == "statusKind"
                                     || k == "errorCode"
@@ -178,7 +181,10 @@ impl From<GraphQLError> for async_graphql::Error {
                                     tracing::error!("Error '{}' contains a reserved property: {}", err.info.code(), k);
                                     continue;
                                 }
-                                e.set(k, v.clone());
+                                match async_graphql::Value::try_from(v) {
+                                    Ok(v) => e.set(k, v),
+                                    Err(err) => tracing::error!("Couldn't deserialize error value: {err}"),
+                                }
                             }
                         }
                     }),

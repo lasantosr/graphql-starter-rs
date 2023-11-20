@@ -26,7 +26,7 @@ pub struct ApiError {
     info: HashMap<String, String>,
     /// Additional details for each one of the errors encountered
     #[serde(skip_serializing_if = "HashMap::is_empty")]
-    errors: HashMap<String, String>,
+    errors: HashMap<String, serde_json::Value>,
 }
 
 impl ApiError {
@@ -53,9 +53,9 @@ impl ApiError {
         self
     }
 
-    /// Extend the error with additional information about errors on fields
-    pub fn with_error_info(mut self, field: impl Into<String>, message: impl Into<String>) -> Self {
-        self.errors.insert(field.into(), message.into());
+    /// Extend the error with additional information about errors
+    pub fn with_error_info(mut self, field: impl Into<String>, info: serde_json::Value) -> Self {
+        self.errors.insert(field.into(), info);
         self
     }
 
@@ -85,7 +85,7 @@ impl ApiError {
     }
 
     /// Retrieves the internal errors
-    pub fn errors(&self) -> &HashMap<String, String> {
+    pub fn errors(&self) -> &HashMap<String, serde_json::Value> {
         &self.errors
     }
 }
@@ -139,15 +139,7 @@ where
         // Extend with the error properties
         if let Some(properties) = error.properties {
             for (key, value) in properties {
-                if ret.info.contains_key(&key) {
-                    tracing::error!(
-                        "Error '{}' contains a property already in use: {}",
-                        error.info.code(),
-                        key
-                    );
-                    continue;
-                }
-                ret = ret.with_info(key, value);
+                ret = ret.with_error_info(key, value);
             }
         }
 
