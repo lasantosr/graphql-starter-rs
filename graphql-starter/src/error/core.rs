@@ -27,17 +27,31 @@ pub struct Error {
     pub(super) source: Option<Arc<dyn fmt::Display + Send + Sync>>,
     pub(super) context: SpanTrace,
 }
+struct ErrorInfoDebug {
+    status: StatusCode,
+    code: &'static str,
+    raw_message: &'static str,
+}
+impl fmt::Debug for ErrorInfoDebug {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ErrorInfo")
+            .field("status", &self.status)
+            .field("code", &self.code)
+            .field("raw_message", &self.raw_message)
+            .finish()
+    }
+}
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let info_debug = f
-            .debug_struct("ErrorInfo")
-            .field("status", &self.info.status())
-            .field("code", &self.info.code().to_string())
-            .field("raw_message", &self.info.raw_message())
-            .finish();
-
         f.debug_struct("Error")
-            .field("info", &info_debug)
+            .field(
+                "info",
+                &ErrorInfoDebug {
+                    status: self.info.status(),
+                    code: self.info.code(),
+                    raw_message: self.info.raw_message(),
+                },
+            )
             .field("reason", &self.reason)
             .field("properties", &self.properties)
             .field("source", &self.source.as_ref().map(|s| s.to_string()))
@@ -72,6 +86,14 @@ impl Error {
     /// Updates the source of the error
     pub fn with_source<S: fmt::Display + Send + Sync + 'static>(mut self, source: S) -> Self {
         self.source = Some(Arc::new(source));
+        self
+    }
+
+    /// Appends an string property to the error
+    pub fn with_str_property(mut self, key: &str, value: impl Into<String>) -> Self {
+        self.properties
+            .get_or_insert_with(HashMap::new)
+            .insert(key.to_string(), serde_json::Value::String(value.into()));
         self
     }
 
