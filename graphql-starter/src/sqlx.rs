@@ -133,6 +133,6 @@ macro_rules! sqlx_query_paginated_as {
 /// Builds a tuple from the given struct fields
 macro_rules! struct_to_tuple {
     ($struct:ident => $($field:ident),*) => {
-        ( $($struct . $field),* )
+        ( $($struct . $field .clone()),* )
     };
 }
