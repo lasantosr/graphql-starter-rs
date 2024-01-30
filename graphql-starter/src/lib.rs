@@ -26,8 +26,7 @@ pub mod sqlx;
 #[cfg(feature = "macros")]
 pub use graphql_starter_macros::*;
 
-mod macros;
-pub use macros::*;
+pub mod macros;
 
 /// Re-exported crates
 pub mod crates {

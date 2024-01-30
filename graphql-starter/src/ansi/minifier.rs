@@ -1,11 +1,11 @@
 // Based on https://github.com/Aloso/to-html/blob/main/crates/ansi-to-html/src/html/minifier.rs
 
-use super::{Ansi, AnsiColor, AnsiConverter, StyledText};
+use super::{Ansi, AnsiConverter, Color, StyledText};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct CurrentStyling {
-    fg: Option<AnsiColor>,
-    bg: Option<AnsiColor>,
+    fg: Option<Color>,
+    bg: Option<Color>,
     bold: bool,
     faint: bool,
     italic: bool,

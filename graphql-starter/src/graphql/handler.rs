@@ -20,7 +20,6 @@ mod auth {
     };
     use async_graphql_axum::{GraphQLBatchRequest, GraphQLProtocol, GraphQLResponse, GraphQLWebSocket};
     use axum::{
-        body::BoxBody,
         extract::{FromRequestParts, WebSocketUpgrade},
         response::IntoResponse,
     };
@@ -97,7 +96,7 @@ mod auth {
         axum::extract::State(CorsState { cors }): axum::extract::State<CorsState>,
         axum::extract::State(AuthState { authn, authz: _ }): axum::extract::State<AuthState<S>>,
         req: http::Request<B>,
-    ) -> axum::http::Response<BoxBody>
+    ) -> axum::response::Response
     where
         Query: ObjectType + 'static,
         Mutation: ObjectType + 'static,

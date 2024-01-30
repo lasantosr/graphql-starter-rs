@@ -101,7 +101,7 @@ async fn test_start(pool: PgPool) -> Result<()> {
     let rows = res.into_iter().collect::<Vec<_>>();
 
     assert_eq!(10, rows.len());
-    assert_eq!(1, rows.get(0).unwrap().node.id);
+    assert_eq!(1, rows.first().unwrap().node.id);
     assert_eq!(10, rows.get(9).unwrap().node.id);
 
     // Retrieve next 10 rows
@@ -122,7 +122,7 @@ async fn test_start(pool: PgPool) -> Result<()> {
     let rows = res.into_iter().collect::<Vec<_>>();
 
     assert_eq!(10, rows.len());
-    assert_eq!(11, rows.get(0).unwrap().node.id);
+    assert_eq!(11, rows.first().unwrap().node.id);
     assert_eq!(20, rows.get(9).unwrap().node.id);
 
     // Retrieve first 20 rows backwards
@@ -143,7 +143,7 @@ async fn test_start(pool: PgPool) -> Result<()> {
     let rows = res.into_iter().collect::<Vec<_>>();
 
     assert_eq!(10, rows.len());
-    assert_eq!(1, rows.get(0).unwrap().node.id);
+    assert_eq!(1, rows.first().unwrap().node.id);
     assert_eq!(10, rows.get(9).unwrap().node.id);
 
     Ok(())
@@ -171,7 +171,7 @@ async fn test_end(pool: PgPool) -> Result<()> {
     let rows = res.into_iter().collect::<Vec<_>>();
 
     assert_eq!(10, rows.len());
-    assert_eq!(91, rows.get(0).unwrap().node.id);
+    assert_eq!(91, rows.first().unwrap().node.id);
     assert_eq!(100, rows.get(9).unwrap().node.id);
 
     // Retrieve previous 10 rows
@@ -192,7 +192,7 @@ async fn test_end(pool: PgPool) -> Result<()> {
     let rows = res.into_iter().collect::<Vec<_>>();
 
     assert_eq!(10, rows.len());
-    assert_eq!(81, rows.get(0).unwrap().node.id);
+    assert_eq!(81, rows.first().unwrap().node.id);
     assert_eq!(90, rows.get(9).unwrap().node.id);
 
     // Retrieve last 20 rows forwards
@@ -213,7 +213,7 @@ async fn test_end(pool: PgPool) -> Result<()> {
     let rows = res.into_iter().collect::<Vec<_>>();
 
     assert_eq!(10, rows.len());
-    assert_eq!(91, rows.get(0).unwrap().node.id);
+    assert_eq!(91, rows.first().unwrap().node.id);
     assert_eq!(100, rows.get(9).unwrap().node.id);
 
     Ok(())

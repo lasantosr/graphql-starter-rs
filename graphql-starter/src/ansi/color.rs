@@ -4,15 +4,15 @@ use super::Error;
 
 /// An ANSI color.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub(super) enum AnsiColor {
+pub(super) enum Color {
     FourBit(FourBitColor),
     EightBit(EightBitColor),
     Rgb(RgbColor),
 }
 
-impl AnsiColor {
+impl Color {
     pub(super) fn parse_4bit(code: u8) -> Result<Self, Error> {
-        Ok(AnsiColor::FourBit(match code {
+        Ok(Color::FourBit(match code {
             0 => FourBitColor::Black,
             1 => FourBitColor::Red,
             2 => FourBitColor::Green,
@@ -30,7 +30,7 @@ impl AnsiColor {
     }
 
     pub(super) fn parse_4bit_bright(code: u8) -> Result<Self, Error> {
-        Ok(AnsiColor::FourBit(match code {
+        Ok(Color::FourBit(match code {
             0 => FourBitColor::BrightBlack,
             1 => FourBitColor::BrightRed,
             2 => FourBitColor::BrightGreen,
@@ -61,7 +61,7 @@ impl AnsiColor {
                     .next()
                     .transpose()?
                     .ok_or_else(super::invalid_ansi("Missing 8-bit color"))?;
-                AnsiColor::EightBit(EightBitColor::new(color))
+                Color::EightBit(EightBitColor::new(color))
             }
             2 => {
                 let r = iter.next().transpose()?;
@@ -72,7 +72,7 @@ impl AnsiColor {
                 let g = g.ok_or_else(super::invalid_ansi("Missing ANSI green"))?;
                 let b = b.ok_or_else(super::invalid_ansi("Missing ANSI blue"))?;
 
-                AnsiColor::Rgb(RgbColor { r, g, b })
+                Color::Rgb(RgbColor { r, g, b })
             }
             _ => {
                 return Err(Error::InvalidAnsi {
@@ -83,12 +83,12 @@ impl AnsiColor {
     }
 }
 
-impl fmt::Display for AnsiColor {
+impl fmt::Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            AnsiColor::FourBit(color) => fmt::Display::fmt(&EightBitColor { code: color as u8 }, f),
-            AnsiColor::EightBit(color) => fmt::Display::fmt(&color, f),
-            AnsiColor::Rgb(RgbColor { r, g, b }) => write!(f, "#{:02x}{:02x}{:02x}", r, g, b),
+            Color::FourBit(color) => fmt::Display::fmt(&EightBitColor { code: color as u8 }, f),
+            Color::EightBit(color) => fmt::Display::fmt(&color, f),
+            Color::Rgb(RgbColor { r, g, b }) => write!(f, "#{:02x}{:02x}{:02x}", r, g, b),
         }
     }
 }
@@ -155,7 +155,7 @@ pub(super) struct EightBitColor {
 }
 
 impl EightBitColor {
-    pub fn new(code: u8) -> Self {
+    pub(super) fn new(code: u8) -> Self {
         Self { code }
     }
 }

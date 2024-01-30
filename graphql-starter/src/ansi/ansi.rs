@@ -1,6 +1,6 @@
 use std::num::ParseIntError;
 
-use super::{AnsiColor, Error};
+use super::{Color, Error};
 
 /// Iterator that consumes a sequence of numbers and emits ANSI escape sequences.
 #[must_use = "iterators are lazy and do nothing unless consumed"]
@@ -52,18 +52,18 @@ where
         24 => Ansi::UnderlineOff,
         25..=28 => Ansi::Noop,
         29 => Ansi::CrossedOutOff,
-        30..=37 => Ansi::ForgroundColor(AnsiColor::parse_4bit(code - 30)?),
-        38 => Ansi::ForgroundColor(AnsiColor::parse_8bit_or_rgb(iter)?),
+        30..=37 => Ansi::ForgroundColor(Color::parse_4bit(code - 30)?),
+        38 => Ansi::ForgroundColor(Color::parse_8bit_or_rgb(iter)?),
         39 => Ansi::DefaultForegroundColor,
-        40..=47 => Ansi::BackgroundColor(AnsiColor::parse_4bit(code - 40)?),
-        48 => Ansi::BackgroundColor(AnsiColor::parse_8bit_or_rgb(iter)?),
+        40..=47 => Ansi::BackgroundColor(Color::parse_4bit(code - 40)?),
+        48 => Ansi::BackgroundColor(Color::parse_8bit_or_rgb(iter)?),
         49 => Ansi::DefaultBackgroundColor,
         50..=55 => Ansi::Noop,
         58..=59 => Ansi::Noop,
         60..=65 => Ansi::Noop,
         73..=74 => Ansi::Noop,
-        90..=97 => Ansi::ForgroundColor(AnsiColor::parse_4bit_bright(code - 90)?),
-        100..=107 => Ansi::BackgroundColor(AnsiColor::parse_4bit_bright(code - 100)?),
+        90..=97 => Ansi::ForgroundColor(Color::parse_4bit_bright(code - 90)?),
+        100..=107 => Ansi::BackgroundColor(Color::parse_4bit_bright(code - 100)?),
         _ => {
             return Err(Error::InvalidAnsi {
                 msg: format!("Unexpected code {}", code),
@@ -101,9 +101,9 @@ pub(super) enum Ansi {
     // InverseOff,
     // ConcealOff,
     CrossedOutOff,
-    ForgroundColor(AnsiColor),
+    ForgroundColor(Color),
     DefaultForegroundColor,
-    BackgroundColor(AnsiColor),
+    BackgroundColor(Color),
     DefaultBackgroundColor,
     // Framed,
     // Encircled,

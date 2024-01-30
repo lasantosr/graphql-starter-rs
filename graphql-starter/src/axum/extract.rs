@@ -4,33 +4,29 @@
 //! every time
 
 use axum::{
-    body::HttpBody,
-    extract::{FromRequest, FromRequestParts},
+    extract::{FromRequest, FromRequestParts, Request},
     response::{IntoResponse, Response},
-    BoxError,
 };
 use bytes::{BufMut, BytesMut};
-use http::{header, request::Parts, HeaderValue, Request};
+use http::{header, request::Parts, HeaderValue};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::error::{ApiError, MapToErr};
 
 /// Wrapper over [axum::Json] to customize error responses
 #[derive(Debug, Clone, Copy, Default)]
+#[must_use]
 pub struct Json<T>(pub T);
 
 #[axum::async_trait]
-impl<B, S, T> FromRequest<S, B> for Json<T>
+impl<S, T> FromRequest<S> for Json<T>
 where
     T: DeserializeOwned,
-    B: HttpBody + Send + 'static,
-    B::Data: Send,
-    B::Error: Into<BoxError>,
     S: Send + Sync,
 {
     type Rejection = Box<ApiError>;
 
-    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
         ::axum::Json::<T>::from_request(req, state)
             .await
             .map(|::axum::Json(value)| Json(value))

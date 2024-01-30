@@ -143,8 +143,8 @@ mod tests {
         // Retrieve the last events, which should accumulate the last two only
         let events = make_writer.get_last_events();
         assert_eq!(2, events.len());
-        assert!(events.get(0).unwrap().contains("event-#2"));
-        assert!(events.get(1).unwrap().contains("event-#3"));
+        assert!(events.front().unwrap().contains("event-#2"));
+        assert!(events.back().unwrap().contains("event-#3"));
 
         // Subscribe to live events
         let mut events_tail = make_writer.subscribe_to_events().unwrap();

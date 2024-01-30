@@ -1,17 +1,18 @@
-use std::path::Path;
+use core::future::Future;
+use std::{path::Path, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
-use axum::{extract::FromRef, routing::IntoMakeService, Router, Server};
+use axum::{body::Body, extract::FromRef, serve::WithGracefulShutdown, Router};
 use http::Request;
-use hyper::{server::conn::AddrIncoming, Body};
+use tokio::net::TcpListener;
 use tower::ServiceBuilder;
-use tower_http::trace::TraceLayer;
+use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
 
 use super::CorsState;
 use crate::request_id::{RequestId, RequestIdLayer};
 
 /// Add tracing and cors layers to the given router
-pub fn build_router<S>(router: Router<S>, state: S) -> Result<Router>
+pub fn build_router<S>(router: Router<S>, state: S, request_timeout: Duration) -> Result<Router>
 where
     S: Clone + Send + Sync + 'static,
     CorsState: FromRef<S>,
@@ -45,6 +46,9 @@ where
                     }
             }),
         )
+        // Add a timeout so requests don't hang forever
+        .layer(TimeoutLayer::new(request_timeout))
+        // Add CORS layer as well
         .layer(cors.build_cors_layer().context("couldn't build CORS layer")?);
 
     Ok(router.layer(layers).with_state(state))
@@ -58,9 +62,14 @@ where
 /// let server = build_http_server(router, 80).await?;
 /// server.await?;
 /// ```
-pub async fn build_http_server(router: Router, port: u16) -> Result<Server<AddrIncoming, IntoMakeService<Router>>> {
-    // Return server
-    Ok(axum::Server::bind(&([0, 0, 0, 0], port).into()).serve(router.into_make_service()))
+pub async fn build_http_server(
+    router: Router,
+    port: u16,
+) -> anyhow::Result<WithGracefulShutdown<Router, Router, impl Future<Output = ()>>> {
+    let listener = TcpListener::bind(format!("0.0.0.0:{port}"))
+        .await
+        .context("Can't bind TCP listener")?;
+    Ok(axum::serve(listener, router).with_graceful_shutdown(shutdown_signal()))
 }
 
 #[cfg(feature = "https")]
@@ -78,7 +87,7 @@ pub async fn build_https_server(
     cert: impl AsRef<Path>,
     key: impl AsRef<Path>,
 ) -> Result<impl std::future::Future<Output = Result<()>>> {
-    use axum_server::tls_rustls::RustlsConfig;
+    use axum_server::{tls_rustls::RustlsConfig, Handle};
     use futures_util::TryFutureExt;
 
     // SSL Config
@@ -86,8 +95,40 @@ pub async fn build_https_server(
         .await
         .map_err(|err| anyhow!("Error reading SSL config: {err}"))?;
 
+    // Graceful shutdown handle
+    let handle = Handle::new();
+    let cloned_handle = handle.clone();
+    tokio::spawn(async move {
+        shutdown_signal().await;
+        tracing::trace!("received graceful shutdown signal. Telling tasks to shutdown");
+        cloned_handle.graceful_shutdown(Some(Duration::from_secs(10)));
+    });
+
     // Return
     Ok(axum_server::bind_rustls(([0, 0, 0, 0], port).into(), config)
+        .handle(handle)
         .serve(router.into_make_service())
         .map_err(|err| anyhow!("Error serving http server: {err}")))
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }

@@ -28,9 +28,8 @@ tracing = [
     "dep:tracing-subscriber",
     "tracing-subscriber?/env-filter",
     "dep:parking_lot",
-    "dep:tokio",
     "dep:tokio-stream",
-    "tokio?/sync",
+    "tokio/sync",
     "tokio-stream?/sync",
 ]
 
@@ -63,7 +62,7 @@ graphql-starter-macros = { workspace = true, optional = true }
 
 anyhow        = { workspace = true }
 async-trait   = { workspace = true }
-axum          = { workspace = true }
+axum          = { workspace = true, features = ["ws"] }
 base64        = { workspace = true }
 bytes         = { workspace = true }
 error-info    = { workspace = true }
@@ -74,8 +73,9 @@ mime          = { workspace = true }
 once_cell     = { workspace = true }
 serde         = { workspace = true, features = ["derive"] }
 serde_json    = { workspace = true }
+tokio         = { workspace = true, features = ["signal", "macros"] }
 tower         = { workspace = true }
-tower-http    = { workspace = true, features = ["trace", "cors"] }
+tower-http    = { workspace = true, features = ["trace", "cors", "timeout"] }
 tracing       = { workspace = true }
 tracing-error = { workspace = true }
 ulid          = { workspace = true }
@@ -94,7 +94,6 @@ parking_lot        = { workspace = true, optional = true }
 paste              = { workspace = true, optional = true }
 regex              = { workspace = true, optional = true }
 strip-ansi-escapes = { workspace = true, optional = true }
-tokio              = { workspace = true, optional = true }
 tokio-stream       = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true }
 

@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use super::{Ansi, AnsiColor, AnsiIter, Error, Minifier};
+use super::{Ansi, AnsiIter, Color, Error, Minifier};
 
 /// A text string that contains an optional style
 #[derive(Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -51,8 +51,8 @@ pub(super) enum AnsiStyle {
     Italic,
     Underline,
     CrossedOut,
-    ForegroundColor(AnsiColor),
-    BackgroundColor(AnsiColor),
+    ForegroundColor(Color),
+    BackgroundColor(Color),
 }
 
 impl From<&Vec<AnsiStyle>> for TextStyle {
