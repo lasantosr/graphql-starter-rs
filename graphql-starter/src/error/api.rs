@@ -4,6 +4,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use http::{header::IntoHeaderName, HeaderMap, HeaderValue};
 use serde::Serialize;
 
 use super::Error;
@@ -27,6 +28,9 @@ pub struct ApiError {
     /// Additional details for each one of the errors encountered
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     errors: HashMap<String, serde_json::Value>,
+    /// Additional headers to be sent with the response
+    #[serde(skip)]
+    headers: Option<HeaderMap>,
 }
 
 impl ApiError {
@@ -38,6 +42,7 @@ impl ApiError {
             detail: detail.into(),
             info: Default::default(),
             errors: Default::default(),
+            headers: None,
         }
     }
 
@@ -56,6 +61,15 @@ impl ApiError {
     /// Extend the error with additional information about errors
     pub fn with_error_info(mut self, field: impl Into<String>, info: serde_json::Value) -> Self {
         self.errors.insert(field.into(), info);
+        self
+    }
+
+    /// Extend the error with an additional header
+    pub fn with_header(mut self, key: impl IntoHeaderName, value: impl TryInto<HeaderValue>) -> Self {
+        if let Ok(value) = value.try_into() {
+            let headers = self.headers.get_or_insert_with(Default::default);
+            headers.append(key, value);
+        }
         self
     }
 
@@ -87,6 +101,11 @@ impl ApiError {
     /// Retrieves the internal errors
     pub fn errors(&self) -> &HashMap<String, serde_json::Value> {
         &self.errors
+    }
+
+    /// Retrieves the additional headers
+    pub fn headers(&self) -> &Option<HeaderMap> {
+        &self.headers
     }
 }
 
@@ -149,12 +168,16 @@ where
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (self.status, Json(self)).into_response()
+        if let Some(headers) = &self.headers {
+            (self.status, headers.clone(), Json(self)).into_response()
+        } else {
+            (self.status, Json(self)).into_response()
+        }
     }
 }
 impl IntoResponse for Box<ApiError> {
     fn into_response(self) -> Response {
-        (self.status, Json(self)).into_response()
+        (*self).into_response()
     }
 }
 
