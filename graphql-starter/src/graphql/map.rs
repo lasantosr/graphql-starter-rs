@@ -191,7 +191,6 @@ where
     }
 }
 
-#[async_trait::async_trait]
 impl<T: OutputType + GraphQLMapEntry> OutputType for GraphQLMap<T> {
     fn type_name() -> Cow<'static, str> {
         Cow::Owned(format!("[{}]", T::qualified_type_name()))

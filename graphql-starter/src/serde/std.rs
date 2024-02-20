@@ -4,6 +4,98 @@ use ::std::{str::FromStr, time::Duration};
 const NANOS_PER_MILLI: u32 = 1_000_000;
 const MILLIS_PER_SEC: u128 = 1_000;
 const SECS_PER_MINUTE: u64 = 60;
+const SECS_PER_HOUR: u64 = 60 * SECS_PER_MINUTE;
+const SECS_PER_DAY: u64 = 24 * SECS_PER_HOUR;
+
+/// De/serialize a chrono [Duration] in/to days
+pub mod duration_days {
+
+    use super::*;
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let days: u64 = Deserialize::deserialize(d)?;
+        Ok(Duration::from_secs(days * SECS_PER_DAY))
+    }
+
+    pub fn serialize<S>(d: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u64(d.as_secs() / SECS_PER_DAY)
+    }
+}
+
+/// De/serialize an optional chrono [Duration] in/to days
+pub mod duration_days_opt {
+
+    use super::*;
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Option<Duration>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let days: Option<u64> = Deserialize::deserialize(d)?;
+        Ok(days.map(|days| Duration::from_secs(days * SECS_PER_DAY)))
+    }
+
+    pub fn serialize<S>(opt: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match *opt {
+            Some(d) => serializer.serialize_some(&(d.as_secs() / SECS_PER_DAY)),
+            None => serializer.serialize_none(),
+        }
+    }
+}
+
+/// De/serialize a chrono [Duration] in/to hours
+pub mod duration_hours {
+
+    use super::*;
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let hours: u64 = Deserialize::deserialize(d)?;
+        Ok(Duration::from_secs(hours * SECS_PER_HOUR))
+    }
+
+    pub fn serialize<S>(d: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u64(d.as_secs() / SECS_PER_HOUR)
+    }
+}
+
+/// De/serialize an optional chrono [Duration] in/to hours
+pub mod duration_hours_opt {
+
+    use super::*;
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Option<Duration>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let hours: Option<u64> = Deserialize::deserialize(d)?;
+        Ok(hours.map(|hours| Duration::from_secs(hours * SECS_PER_HOUR)))
+    }
+
+    pub fn serialize<S>(opt: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match *opt {
+            Some(d) => serializer.serialize_some(&(d.as_secs() / SECS_PER_HOUR)),
+            None => serializer.serialize_none(),
+        }
+    }
+}
 
 /// De/serialize an std [Duration] in/to minutes
 pub mod duration_mins {

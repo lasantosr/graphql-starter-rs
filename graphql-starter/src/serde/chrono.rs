@@ -1,6 +1,96 @@
 use ::chrono::{Duration, FixedOffset};
 use ::serde::{de::Error, Deserialize, Deserializer, Serializer};
 
+/// De/serialize a chrono [Duration] in/to days
+pub mod duration_days {
+
+    use super::*;
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let days: i64 = Deserialize::deserialize(d)?;
+        Ok(Duration::days(days))
+    }
+
+    pub fn serialize<S>(d: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_i64(d.num_days())
+    }
+}
+
+/// De/serialize an optional chrono [Duration] in/to days
+pub mod duration_days_opt {
+
+    use super::*;
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Option<Duration>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let days: Option<i64> = Deserialize::deserialize(d)?;
+        Ok(days.map(Duration::days))
+    }
+
+    pub fn serialize<S>(opt: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match *opt {
+            Some(d) => serializer.serialize_some(&d.num_days()),
+            None => serializer.serialize_none(),
+        }
+    }
+}
+
+/// De/serialize a chrono [Duration] in/to hours
+pub mod duration_hours {
+
+    use super::*;
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let hours: i64 = Deserialize::deserialize(d)?;
+        Ok(Duration::hours(hours))
+    }
+
+    pub fn serialize<S>(d: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_i64(d.num_hours())
+    }
+}
+
+/// De/serialize an optional chrono [Duration] in/to hours
+pub mod duration_hours_opt {
+
+    use super::*;
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Option<Duration>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let hours: Option<i64> = Deserialize::deserialize(d)?;
+        Ok(hours.map(Duration::hours))
+    }
+
+    pub fn serialize<S>(opt: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match *opt {
+            Some(d) => serializer.serialize_some(&d.num_hours()),
+            None => serializer.serialize_none(),
+        }
+    }
+}
+
 /// De/serialize a chrono [Duration] in/to minutes
 pub mod duration_mins {
 

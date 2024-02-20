@@ -1,7 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use async_graphql::{Context, Guard, Result};
-use async_trait::async_trait;
 
 use crate::{
     auth::{AuthErrorCode, AuthorizationService, Subject},
@@ -30,7 +29,6 @@ impl<S: Subject> AuthGuard<S> {
     }
 }
 
-#[async_trait]
 impl<S: Subject> Guard for AuthGuard<S> {
     async fn check(&self, ctx: &Context<'_>) -> Result<()> {
         let sub = ctx.data::<Option<S>>().map_err(GraphQLError::from)?;
