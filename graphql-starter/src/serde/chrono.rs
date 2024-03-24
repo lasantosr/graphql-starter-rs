@@ -11,7 +11,7 @@ pub mod duration_days {
         D: Deserializer<'de>,
     {
         let days: i64 = Deserialize::deserialize(d)?;
-        Ok(Duration::days(days))
+        Duration::try_days(days).ok_or_else(|| D::Error::custom("out of bounds"))
     }
 
     pub fn serialize<S>(d: &Duration, serializer: S) -> Result<S::Ok, S::Error>
@@ -32,7 +32,8 @@ pub mod duration_days_opt {
         D: Deserializer<'de>,
     {
         let days: Option<i64> = Deserialize::deserialize(d)?;
-        Ok(days.map(Duration::days))
+        days.map(|d| Duration::try_days(d).ok_or_else(|| D::Error::custom("out of bounds")))
+            .transpose()
     }
 
     pub fn serialize<S>(opt: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>
@@ -56,7 +57,7 @@ pub mod duration_hours {
         D: Deserializer<'de>,
     {
         let hours: i64 = Deserialize::deserialize(d)?;
-        Ok(Duration::hours(hours))
+        Duration::try_hours(hours).ok_or_else(|| D::Error::custom("out of bounds"))
     }
 
     pub fn serialize<S>(d: &Duration, serializer: S) -> Result<S::Ok, S::Error>
@@ -77,7 +78,9 @@ pub mod duration_hours_opt {
         D: Deserializer<'de>,
     {
         let hours: Option<i64> = Deserialize::deserialize(d)?;
-        Ok(hours.map(Duration::hours))
+        hours
+            .map(|h| Duration::try_hours(h).ok_or_else(|| D::Error::custom("out of bounds")))
+            .transpose()
     }
 
     pub fn serialize<S>(opt: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>
@@ -101,7 +104,7 @@ pub mod duration_mins {
         D: Deserializer<'de>,
     {
         let minutes: i64 = Deserialize::deserialize(d)?;
-        Ok(Duration::minutes(minutes))
+        Duration::try_minutes(minutes).ok_or_else(|| D::Error::custom("out of bounds"))
     }
 
     pub fn serialize<S>(d: &Duration, serializer: S) -> Result<S::Ok, S::Error>
@@ -122,7 +125,9 @@ pub mod duration_mins_opt {
         D: Deserializer<'de>,
     {
         let minutes: Option<i64> = Deserialize::deserialize(d)?;
-        Ok(minutes.map(Duration::minutes))
+        minutes
+            .map(|m| Duration::try_minutes(m).ok_or_else(|| D::Error::custom("out of bounds")))
+            .transpose()
     }
 
     pub fn serialize<S>(opt: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>
@@ -146,7 +151,7 @@ pub mod duration_secs {
         D: Deserializer<'de>,
     {
         let seconds: i64 = Deserialize::deserialize(d)?;
-        Ok(Duration::seconds(seconds))
+        Duration::try_seconds(seconds).ok_or_else(|| D::Error::custom("out of bounds"))
     }
 
     pub fn serialize<S>(d: &Duration, serializer: S) -> Result<S::Ok, S::Error>
@@ -167,7 +172,9 @@ pub mod duration_secs_opt {
         D: Deserializer<'de>,
     {
         let seconds: Option<i64> = Deserialize::deserialize(d)?;
-        Ok(seconds.map(Duration::seconds))
+        seconds
+            .map(|s| Duration::try_seconds(s).ok_or_else(|| D::Error::custom("out of bounds")))
+            .transpose()
     }
 
     pub fn serialize<S>(opt: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>
@@ -191,7 +198,7 @@ pub mod duration_millis {
         D: Deserializer<'de>,
     {
         let millis: i64 = Deserialize::deserialize(d)?;
-        Ok(Duration::milliseconds(millis))
+        Duration::try_milliseconds(millis).ok_or_else(|| D::Error::custom("out of bounds"))
     }
 
     pub fn serialize<S>(d: &Duration, serializer: S) -> Result<S::Ok, S::Error>
@@ -212,7 +219,9 @@ pub mod duration_millis_opt {
         D: Deserializer<'de>,
     {
         let millis: Option<i64> = Deserialize::deserialize(d)?;
-        Ok(millis.map(Duration::milliseconds))
+        millis
+            .map(|m| Duration::try_milliseconds(m).ok_or_else(|| D::Error::custom("out of bounds")))
+            .transpose()
     }
 
     pub fn serialize<S>(opt: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>

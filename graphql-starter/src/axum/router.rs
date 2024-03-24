@@ -1,7 +1,7 @@
 use core::future::Future;
-use std::{path::Path, time::Duration};
+use std::time::Duration;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use axum::{body::Body, extract::FromRef, serve::WithGracefulShutdown, Router};
 use http::Request;
 use tokio::net::TcpListener;
@@ -84,8 +84,8 @@ pub async fn build_http_server(
 pub async fn build_https_server(
     router: Router,
     port: u16,
-    cert: impl AsRef<Path>,
-    key: impl AsRef<Path>,
+    cert: impl AsRef<std::path::Path>,
+    key: impl AsRef<std::path::Path>,
 ) -> Result<impl std::future::Future<Output = Result<()>>> {
     use axum_server::{tls_rustls::RustlsConfig, Handle};
     use futures_util::TryFutureExt;
@@ -93,7 +93,7 @@ pub async fn build_https_server(
     // SSL Config
     let config = RustlsConfig::from_pem_file(cert, key)
         .await
-        .map_err(|err| anyhow!("Error reading SSL config: {err}"))?;
+        .map_err(|err| anyhow::anyhow!("Error reading SSL config: {err}"))?;
 
     // Graceful shutdown handle
     let handle = Handle::new();
@@ -108,7 +108,7 @@ pub async fn build_https_server(
     Ok(axum_server::bind_rustls(([0, 0, 0, 0], port).into(), config)
         .handle(handle)
         .serve(router.into_make_service())
-        .map_err(|err| anyhow!("Error serving http server: {err}")))
+        .map_err(|err| anyhow::anyhow!("Error serving http server: {err}")))
 }
 
 async fn shutdown_signal() {
