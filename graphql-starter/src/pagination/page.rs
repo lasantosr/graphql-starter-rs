@@ -2,11 +2,12 @@ use std::ops::Range;
 
 use iter_flow::Iterflow;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use strum::{EnumIs, EnumTryAs};
 
 use super::{OpaqueCursor, PaginationErrorCode};
 use crate::error::{Error, MapToErr, Result};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForwardPageQuery {
     /// How many items to return
     pub first: usize,
@@ -23,7 +24,7 @@ impl ForwardPageQuery {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BackwardPageQuery {
     /// How many items to return
     pub last: usize,
@@ -41,7 +42,7 @@ impl BackwardPageQuery {
 }
 
 /// Page information when querying for resources
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumTryAs, EnumIs)]
 pub enum PageQuery {
     Forward(ForwardPageQuery),
     Backward(BackwardPageQuery),

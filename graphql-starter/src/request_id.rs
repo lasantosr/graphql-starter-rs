@@ -41,7 +41,7 @@ impl AsRef<Ulid> for &RequestId {
 impl fmt::Display for RequestId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let mut buffer = [0; ulid::ULID_LEN];
-        write!(f, "{}", self.0.to_str(&mut buffer).unwrap_or_default())
+        write!(f, "{}", self.0.array_to_str(&mut buffer))
     }
 }
 
