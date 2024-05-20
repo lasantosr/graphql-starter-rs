@@ -87,32 +87,19 @@ pub async fn build_https_server(
     cert: impl AsRef<std::path::Path>,
     key: impl AsRef<std::path::Path>,
 ) -> Result<impl std::future::Future<Output = Result<()>>> {
-    use axum_server::{tls_rustls::RustlsConfig, Handle};
-    use futures_util::TryFutureExt;
+    use axum_server::tls_rustls::RustlsConfig;
 
     // SSL Config
     let config = RustlsConfig::from_pem_file(cert, key)
         .await
         .map_err(|err| anyhow::anyhow!("Error reading SSL config: {err}"))?;
 
-    // Graceful shutdown handle
-    let handle = Handle::new();
-    let cloned_handle = handle.clone();
-    tokio::spawn(async move {
-        shutdown_signal().await;
-        tracing::trace!("received graceful shutdown signal. Telling tasks to shutdown");
-        cloned_handle.graceful_shutdown(Some(Duration::from_secs(10)));
-    });
-
-    // Return
-    Ok(axum_server::bind_rustls(([0, 0, 0, 0], port).into(), config)
-        .handle(handle)
-        .serve(router.into_make_service())
-        .map_err(|err| anyhow::anyhow!("Error serving http server: {err}")))
+    // Build server
+    build_https_server_with(router, port, config).await
 }
 
 #[cfg(feature = "https")]
-/// Builds a new axum HTTPS Server for a given [Router]
+/// Builds a new axum HTTPS Server for a given [Router] with a self-signed certificate
 ///
 /// The server must be awaited in order to keep listening for incoming traffic:
 ///
@@ -125,8 +112,7 @@ pub async fn build_self_signed_https_server(
     port: u16,
     subject_alt_names: impl IntoIterator<Item = impl Into<String>>,
 ) -> Result<impl std::future::Future<Output = Result<()>>> {
-    use axum_server::{tls_rustls::RustlsConfig, Handle};
-    use futures_util::TryFutureExt;
+    use axum_server::tls_rustls::RustlsConfig;
     use rcgen::CertifiedKey;
 
     // Generate a self-signed certificate
@@ -138,6 +124,27 @@ pub async fn build_self_signed_https_server(
     let config = RustlsConfig::from_pem(cert.pem().into(), key_pair.serialize_pem().into())
         .await
         .map_err(|err| anyhow::anyhow!("Error reading SSL config: {err}"))?;
+
+    // Build server
+    build_https_server_with(router, port, config).await
+}
+
+#[cfg(feature = "https")]
+/// Builds a new axum HTTPS Server for a given [Router] with the given config
+///
+/// The server must be awaited in order to keep listening for incoming traffic:
+///
+/// ``` rust ignore
+/// let server = build_https_server_with(router, 443, config).await?;
+/// server.await?;
+/// ```
+pub async fn build_https_server_with(
+    router: Router,
+    port: u16,
+    config: axum_server::tls_rustls::RustlsConfig,
+) -> Result<impl std::future::Future<Output = Result<()>>> {
+    use axum_server::Handle;
+    use futures_util::TryFutureExt;
 
     // Graceful shutdown handle
     let handle = Handle::new();

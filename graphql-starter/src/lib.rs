@@ -34,4 +34,12 @@ pub mod crates {
     pub mod paste {
         pub use ::paste::*;
     }
+    #[cfg(feature = "https")]
+    pub mod axum_server {
+        pub use ::axum_server::*;
+    }
+    #[cfg(feature = "https")]
+    pub mod rcgen {
+        pub use ::rcgen::*;
+    }
 }
