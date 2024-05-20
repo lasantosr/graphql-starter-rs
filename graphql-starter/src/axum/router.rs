@@ -111,6 +111,50 @@ pub async fn build_https_server(
         .map_err(|err| anyhow::anyhow!("Error serving http server: {err}")))
 }
 
+#[cfg(feature = "https")]
+/// Builds a new axum HTTPS Server for a given [Router]
+///
+/// The server must be awaited in order to keep listening for incoming traffic:
+///
+/// ``` rust ignore
+/// let server = build_self_signed_https_server(router, 443, ["localhost"]).await?;
+/// server.await?;
+/// ```
+pub async fn build_self_signed_https_server(
+    router: Router,
+    port: u16,
+    subject_alt_names: impl IntoIterator<Item = impl Into<String>>,
+) -> Result<impl std::future::Future<Output = Result<()>>> {
+    use axum_server::{tls_rustls::RustlsConfig, Handle};
+    use futures_util::TryFutureExt;
+    use rcgen::CertifiedKey;
+
+    // Generate a self-signed certificate
+    let CertifiedKey { cert, key_pair } =
+        rcgen::generate_simple_self_signed(subject_alt_names.into_iter().map(|n| n.into()).collect::<Vec<String>>())
+            .map_err(|err| anyhow::anyhow!("Couldn't generate self-signed certificate: {err}"))?;
+
+    // SSL Config
+    let config = RustlsConfig::from_pem(cert.pem().into(), key_pair.serialize_pem().into())
+        .await
+        .map_err(|err| anyhow::anyhow!("Error reading SSL config: {err}"))?;
+
+    // Graceful shutdown handle
+    let handle = Handle::new();
+    let cloned_handle = handle.clone();
+    tokio::spawn(async move {
+        shutdown_signal().await;
+        tracing::trace!("received graceful shutdown signal. Telling tasks to shutdown");
+        cloned_handle.graceful_shutdown(Some(Duration::from_secs(10)));
+    });
+
+    // Return
+    Ok(axum_server::bind_rustls(([0, 0, 0, 0], port).into(), config)
+        .handle(handle)
+        .serve(router.into_make_service())
+        .map_err(|err| anyhow::anyhow!("Error serving http server: {err}")))
+}
+
 async fn shutdown_signal() {
     let ctrl_c = async {
         tokio::signal::ctrl_c().await.expect("failed to install Ctrl+C handler");

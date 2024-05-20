@@ -46,7 +46,7 @@ error-info-summary = ["error-info/summary", "dep:linkme"]
 ansi = ["dep:strip-ansi-escapes", "dep:ansi-to-html", "dep:regex"]
 
 # Allows to build an https server
-https = ["dep:futures-util", "dep:axum-server", "axum-server?/tls-rustls"]
+https = ["dep:futures-util", "dep:axum-server", "axum-server?/tls-rustls", "dep:rcgen"]
 
 # Chrono utils
 chrono = ["dep:chrono"]
@@ -93,6 +93,7 @@ indexmap           = { workspace = true, optional = true }
 linkme             = { workspace = true, optional = true }
 parking_lot        = { workspace = true, optional = true }
 paste              = { workspace = true, optional = true }
+rcgen              = { workspace = true, optional = true }
 regex              = { workspace = true, optional = true }
 strip-ansi-escapes = { workspace = true, optional = true }
 tokio-stream       = { workspace = true, optional = true }
