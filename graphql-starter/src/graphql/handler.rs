@@ -9,6 +9,7 @@ pub async fn graphql_playground_handler(path: String, title: &str) -> impl IntoR
             .subscription_endpoint(&format!("{path}/ws"))
             .title(title)
             .credentials(Credentials::SameOrigin)
+            .header("x-requested-with", "graphiql")
             .finish(),
     )
 }

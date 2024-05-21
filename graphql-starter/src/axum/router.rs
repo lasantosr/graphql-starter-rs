@@ -2,16 +2,28 @@ use core::future::Future;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use axum::{body::Body, extract::FromRef, serve::WithGracefulShutdown, Router};
-use http::Request;
+use axum::{
+    body::Body,
+    extract::FromRef,
+    middleware::{self, Next},
+    serve::WithGracefulShutdown,
+    Router,
+};
+use http::{HeaderMap, Method, Request, StatusCode};
+use serde_json::{json, Value};
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
 use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
 
-use super::CorsState;
+use super::{extract::Json, CorsState};
 use crate::request_id::{RequestId, RequestIdLayer};
 
-/// Add tracing and cors layers to the given router
+/// Add tracing and cors layers to the given router.
+///
+/// The router will include a timeout layer with the given request timeout and a layer to verify that any non-GET
+/// request includes a `x-requested-with` custom header, to prevent CSRF attacks ([reference](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#employing-custom-request-headers-for-ajaxapi)).
+///
+/// For any GET route included afterwards that needs protection, the [`prevent_csrf`] middleware must be added to it.
 pub fn build_router<S>(router: Router<S>, state: S, request_timeout: Duration) -> Result<Router>
 where
     S: Clone + Send + Sync + 'static,
@@ -48,10 +60,44 @@ where
         )
         // Add a timeout so requests don't hang forever
         .layer(TimeoutLayer::new(request_timeout))
+        // Always check that a custom header is set, to prevent CSRF attacks
+        .layer(middleware::from_fn(check_custom_header))
         // Add CORS layer as well
         .layer(cors.build_cors_layer().context("couldn't build CORS layer")?);
 
     Ok(router.layer(layers).with_state(state))
+}
+
+/// Middleware to check that the `x-requested-with` custom header is present on requests, failing if not
+pub async fn prevent_csrf(
+    headers: HeaderMap,
+    request: axum::extract::Request,
+    next: Next,
+) -> Result<axum::response::Response, (StatusCode, Json<Value>)> {
+    if headers.get("x-requested-with").is_none() {
+        Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "The request is missing 'x-requested-with' header" })),
+        ))
+    } else {
+        Ok(next.run(request).await)
+    }
+}
+
+/// Middleware to check that the `x-requested-with` custom header is present on non-get requests, failing if not
+async fn check_custom_header(
+    headers: HeaderMap,
+    request: axum::extract::Request,
+    next: Next,
+) -> Result<axum::response::Response, (StatusCode, Json<Value>)> {
+    if request.method() != Method::GET && headers.get("x-requested-with").is_none() {
+        Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "The request is missing 'x-requested-with' header" })),
+        ))
+    } else {
+        Ok(next.run(request).await)
+    }
 }
 
 /// Builds a new axum HTTP Server for a given [Router]
