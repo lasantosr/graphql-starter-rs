@@ -18,7 +18,7 @@ default = ["full"]
 full = ["graphql", "config", "tracing", "auth", "sqlx", "error-info-summary", "ansi", "chrono"]
 
 # GraphQL module
-graphql = ["dep:async-graphql", "dep:async-graphql-axum", "dep:indexmap", "paste"]
+graphql = ["dep:async-graphql", "dep:async-graphql-axum", "dep:tokio-util", "dep:indexmap", "paste"]
 
 # Config module
 config = ["dep:figment"]
@@ -97,6 +97,7 @@ rcgen              = { workspace = true, optional = true }
 regex              = { workspace = true, optional = true }
 strip-ansi-escapes = { workspace = true, optional = true }
 tokio-stream       = { workspace = true, optional = true }
+tokio-util         = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true }
 
 [dev-dependencies]

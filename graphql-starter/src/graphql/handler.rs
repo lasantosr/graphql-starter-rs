@@ -19,7 +19,7 @@ mod auth {
     use async_graphql::{
         http::ALL_WEBSOCKET_PROTOCOLS, BatchResponse, Data, ObjectType, Response, Schema, SubscriptionType,
     };
-    use async_graphql_axum::{GraphQLBatchRequest, GraphQLProtocol, GraphQLResponse, GraphQLWebSocket};
+    use async_graphql_axum::{GraphQLProtocol, GraphQLResponse, GraphQLWebSocket};
     use axum::{
         extract::{FromRequestParts, WebSocketUpgrade},
         response::IntoResponse,
@@ -29,6 +29,7 @@ mod auth {
         auth::{AuthErrorCode, AuthState, Subject},
         axum::{extract::Extension, CorsState},
         error::{ApiError, GenericErrorCode, MapToErr},
+        graphql::GraphQLBatchRequest,
         request_id::RequestId,
     };
 
