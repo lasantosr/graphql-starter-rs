@@ -76,7 +76,7 @@ serde_json    = { workspace = true }
 strum         = { workspace = true, features = ["derive"] }
 tokio         = { workspace = true, features = ["signal", "macros"] }
 tower         = { workspace = true }
-tower-http    = { workspace = true, features = ["trace", "cors", "timeout"] }
+tower-http    = { workspace = true, features = ["trace", "cors", "timeout", "limit"] }
 tracing       = { workspace = true }
 tracing-error = { workspace = true }
 ulid          = { workspace = true }
@@ -100,6 +100,7 @@ tokio-stream       = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true }
 
 [dev-dependencies]
+axum    = { workspace = true, features = ["macros"] }
 chrono  = { workspace = true, features = ["serde"] }
 figment = { workspace = true, features = ["test"] }
 sqlx    = { workspace = true, features = ["postgres", "macros", "chrono"] }

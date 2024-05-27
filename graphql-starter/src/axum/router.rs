@@ -13,7 +13,7 @@ use http::{HeaderMap, Method, Request, StatusCode};
 use serde_json::{json, Value};
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
-use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
+use tower_http::{limit::RequestBodyLimitLayer, timeout::TimeoutLayer, trace::TraceLayer};
 
 use super::{extract::Json, CorsState};
 use crate::request_id::{RequestId, RequestIdLayer};
@@ -24,7 +24,12 @@ use crate::request_id::{RequestId, RequestIdLayer};
 /// request includes a `x-requested-with` custom header, to prevent CSRF attacks ([reference](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#employing-custom-request-headers-for-ajaxapi)).
 ///
 /// For any GET route included afterwards that needs protection, the [`prevent_csrf`] middleware must be added to it.
-pub fn build_router<S>(router: Router<S>, state: S, request_timeout: Duration) -> Result<Router>
+pub fn build_router<S>(
+    router: Router<S>,
+    state: S,
+    request_timeout: Duration,
+    request_body_limit_bytes: usize,
+) -> Result<Router>
 where
     S: Clone + Send + Sync + 'static,
     CorsState: FromRef<S>,
@@ -58,12 +63,14 @@ where
                     }
             }),
         )
-        // Add a timeout so requests don't hang forever
-        .layer(TimeoutLayer::new(request_timeout))
         // Always check that a custom header is set, to prevent CSRF attacks
         .layer(middleware::from_fn(check_custom_header))
+        // Limit incoming requests size
+        .layer(RequestBodyLimitLayer::new(request_body_limit_bytes))
         // Add CORS layer as well
-        .layer(cors.build_cors_layer().context("couldn't build CORS layer")?);
+        .layer(cors.build_cors_layer().context("couldn't build CORS layer")?)
+        // Add a timeout so requests don't hang forever
+        .layer(TimeoutLayer::new(request_timeout));
 
     Ok(router.layer(layers).with_state(state))
 }
