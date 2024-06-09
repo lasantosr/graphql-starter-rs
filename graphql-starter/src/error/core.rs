@@ -11,8 +11,12 @@ pub type Result<T, E = Box<Error>> = std::result::Result<T, E>;
 pub enum GenericErrorCode {
     #[error(status = StatusCode::BAD_REQUEST, message = "The request is not well formed")]
     BadRequest,
+    #[error(status = StatusCode::UNAUTHORIZED, message = "Not authorized to access this resource")]
+    Unauthorized,
     #[error(status = StatusCode::FORBIDDEN, message = "Forbidden access to the resource")]
     Forbidden,
+    #[error(status = StatusCode::NOT_FOUND, message = "The resource could not be found")]
+    NotFound,
     #[error(status = StatusCode::INTERNAL_SERVER_ERROR, message = "Internal server error")]
     InternalServerError,
 }
