@@ -1,8 +1,8 @@
-use async_graphql::http::{Credentials, GraphiQLSource};
+use async_graphql::http::{AltairSource, Credentials, GraphiQLSource};
 use axum::response::{Html, IntoResponse};
 
-/// Handler that renders a GraphQL playground on the given path to explore the GraphQL API.
-pub async fn graphql_playground_handler(path: String, title: &str) -> impl IntoResponse {
+/// Handler that renders a GraphiQL playground on the given path to explore the API.
+pub async fn graphiql_playground_handler(path: String, title: &str) -> impl IntoResponse {
     Html(
         GraphiQLSource::build()
             .endpoint(&path)
@@ -10,6 +10,29 @@ pub async fn graphql_playground_handler(path: String, title: &str) -> impl IntoR
             .title(title)
             .credentials(Credentials::SameOrigin)
             .header("x-requested-with", "graphiql")
+            .finish(),
+    )
+}
+
+/// Handler that renders an Altair GraphQL playground on the given path to explore the API.
+pub async fn altair_playground_handler(path: String, title: &str) -> impl IntoResponse {
+    Html(
+        AltairSource::build()
+            .title(title)
+            .options(serde_json::json!({
+                "endpointURL": path,
+                "subscriptionsEndpoint": format!("{path}/ws"),
+                "subscriptionsProtocol": "wss",
+                "disableAccount": true,
+                "initialHeaders": {
+                    "x-requested-with": "altair"
+                },
+                "initialSettings": {
+                    "request.withCredentials": true,
+                    "plugin.list": ["altair-graphql-plugin-graphql-explorer"],
+                    "schema.reloadOnStart": true,
+                }
+            }))
             .finish(),
     )
 }

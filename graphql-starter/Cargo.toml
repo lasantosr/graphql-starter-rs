@@ -83,7 +83,7 @@ ulid          = { workspace = true }
 uuid          = { workspace = true }
 
 ansi-to-html       = { workspace = true, optional = true }
-async-graphql      = { workspace = true, optional = true }
+async-graphql      = { workspace = true, optional = true, features = ["altair"] }
 async-graphql-axum = { workspace = true, optional = true }
 axum-server        = { workspace = true, optional = true }
 chrono             = { workspace = true, optional = true }
