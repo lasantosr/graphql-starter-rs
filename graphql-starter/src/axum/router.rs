@@ -81,7 +81,9 @@ pub async fn prevent_csrf(
     request: axum::extract::Request,
     next: Next,
 ) -> Result<axum::response::Response, (StatusCode, Json<Value>)> {
-    if headers.get("x-requested-with").is_none() {
+    // Always skip preflight
+    if request.method() != Method::OPTIONS && headers.get("x-requested-with").is_none() {
+        tracing::debug!("The request is missing 'x-requested-with' header");
         Err((
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "The request is missing 'x-requested-with' header" })),
@@ -97,7 +99,11 @@ async fn check_custom_header(
     request: axum::extract::Request,
     next: Next,
 ) -> Result<axum::response::Response, (StatusCode, Json<Value>)> {
-    if request.method() != Method::GET && headers.get("x-requested-with").is_none() {
+    if request.method() != Method::OPTIONS // Always skip preflight
+        && request.method() != Method::GET
+        && headers.get("x-requested-with").is_none()
+    {
+        tracing::debug!("The request is missing 'x-requested-with' header");
         Err((
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "The request is missing 'x-requested-with' header" })),
