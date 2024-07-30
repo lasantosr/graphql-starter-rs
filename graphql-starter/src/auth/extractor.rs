@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use async_trait::async_trait;
 use axum::extract::{FromRef, FromRequestParts, State};
@@ -9,7 +9,7 @@ use crate::error::{ApiError, MapToErr, Result};
 
 /// This extractor will try to authenticate the request by inspecting both the authentication header and cookie.
 ///
-/// It will add a new extension with the optional subject ([`Option<Subject>`](Subject)).
+/// It will add a new extension with the optional subject ([`Arc<Option<Subject>>`](Subject)).
 pub struct CheckAuth<S: Subject> {
     // This field is needed in order to preserve type generics to the compiler
     sub_type: PhantomData<S>,
@@ -86,7 +86,7 @@ where
             tracing::trace!("Authenticated as {subject}");
             Some(subject)
         };
-        parts.extensions.insert(sub);
+        parts.extensions.insert(Arc::new(sub));
 
         Ok(Self { sub_type: PhantomData })
     }

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, time::Duration};
+use std::{borrow::Cow, sync::LazyLock, time::Duration};
 
 use anyhow::Context;
 use chrono::NaiveDateTime;
@@ -7,7 +7,6 @@ use graphql_starter::{
     pagination::{BackwardPageQuery, ForwardPageQuery, PageQuery},
     sqlx_query_paginated_as,
 };
-use once_cell::sync::Lazy;
 use sqlx::{
     migrate::{Migration, MigrationType, Migrator},
     postgres::PgPoolOptions,
@@ -21,7 +20,7 @@ struct TodoRow {
     item: String,
 }
 
-static MIGRATIONS: Lazy<Migrator> = Lazy::new(migrations);
+static MIGRATIONS: LazyLock<Migrator> = LazyLock::new(migrations);
 
 fn migrations() -> Migrator {
     let mut migrations = Vec::new();

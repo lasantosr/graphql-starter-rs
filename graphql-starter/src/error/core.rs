@@ -35,6 +35,7 @@ struct ErrorInfoDebug {
     status: StatusCode,
     code: &'static str,
     raw_message: &'static str,
+    fields: HashMap<String, String>,
 }
 impl fmt::Debug for ErrorInfoDebug {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -42,6 +43,7 @@ impl fmt::Debug for ErrorInfoDebug {
             .field("status", &self.status)
             .field("code", &self.code)
             .field("raw_message", &self.raw_message)
+            .field("fields", &self.fields)
             .finish()
     }
 }
@@ -54,6 +56,7 @@ impl fmt::Debug for Error {
                     status: self.info.status(),
                     code: self.info.code(),
                     raw_message: self.info.raw_message(),
+                    fields: self.info.fields(),
                 },
             )
             .field("reason", &self.reason)

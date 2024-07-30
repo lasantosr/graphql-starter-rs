@@ -126,3 +126,20 @@ where
             })
     }
 }
+
+/// Extractor for an optional [Extension]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ExtensionOpt<T>(pub Option<T>);
+
+#[axum::async_trait]
+impl<T, S> FromRequestParts<S> for ExtensionOpt<T>
+where
+    T: Clone + Send + Sync + 'static,
+    S: Send + Sync,
+{
+    type Rejection = Box<ApiError>;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        Ok(ExtensionOpt(parts.extensions.get::<T>().cloned()))
+    }
+}

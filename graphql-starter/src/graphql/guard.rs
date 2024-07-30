@@ -9,8 +9,8 @@ use crate::{
 
 /// Authorization [Guard].
 ///
-/// This guard will use the `Option<Subject>` and `Arc<dyn AuthorizationService<Subject>>` from the GraphQL context to
-/// authorize an action, failing if they're not available.
+/// This guard will use the `Arc<Option<Subject>>` and `Arc<dyn AuthorizationService<Subject>>` from the GraphQL context
+/// to authorize an action, failing if they're not available.
 pub struct AuthGuard<S: Subject> {
     relation: &'static str,
     object: &'static str,
@@ -31,7 +31,7 @@ impl<S: Subject> AuthGuard<S> {
 
 impl<S: Subject> Guard for AuthGuard<S> {
     async fn check(&self, ctx: &Context<'_>) -> Result<()> {
-        let sub = ctx.data::<Option<S>>().map_err(GraphQLError::from)?;
+        let sub = ctx.data::<Arc<Option<S>>>().map_err(GraphQLError::from)?.as_ref();
         match sub {
             Some(sub) => {
                 let authz = ctx

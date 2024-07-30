@@ -70,7 +70,6 @@ http          = { workspace = true }
 hyper         = { workspace = true }
 iter-flow     = { workspace = true }
 mime          = { workspace = true }
-once_cell     = { workspace = true }
 serde         = { workspace = true, features = ["derive"] }
 serde_json    = { workspace = true }
 strum         = { workspace = true, features = ["derive"] }

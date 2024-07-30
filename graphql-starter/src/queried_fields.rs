@@ -119,14 +119,14 @@ impl QueriedFields {
         }
     }
 
-    /// Checks if there are other fiends queried not present on the list.
+    /// Checks if there are other top-level fields queried not present on the list.
     ///
     /// This method will return true always if all fields are queried, no matter if you manually provide all of them.
     ///
     /// # Examples:
     /// ``` rust
     /// # use graphql_starter::queried_fields::QueriedFields;
-    /// let query = QueriedFields::from(vec!["a", "b", "c"]);
+    /// let query = QueriedFields::from(vec!["a", "b", "b.d", "c"]);
     ///
     /// assert!(query.other_than(&["a", "b"]));
     /// assert!(!query.other_than(&["a", "b", "c"]));
@@ -134,11 +134,10 @@ impl QueriedFields {
     pub fn other_than(&self, fields: &[&str]) -> bool {
         match self {
             QueriedFields::All => true,
-            QueriedFields::Fields(queried_fields) => !queried_fields
-                .iter()
-                .filter(|f| !fields.contains(&f.as_str()))
-                .collect::<Vec<_>>()
-                .is_empty(),
+            QueriedFields::Fields(queried_fields) => queried_fields.iter().any(|f| match f.split_once('.') {
+                Some((f, _)) => !fields.contains(&f),
+                None => !fields.contains(&f.as_str()),
+            }),
         }
     }
 
@@ -163,8 +162,7 @@ impl QueriedFields {
                     let prefix = format!("{field}.");
                     QueriedFields::Fields(
                         fields
-                            .clone()
-                            .into_iter()
+                            .iter()
                             .filter_map(|s| s.strip_prefix(&prefix).map(|stripped| stripped.to_string()))
                             .collect(),
                     )

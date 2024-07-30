@@ -1,4 +1,5 @@
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
+
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -144,7 +145,7 @@ impl AnsiConverter {
     }
 }
 
-static ANSI_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("\x1b(\\[[0-9;?]*[A-HJKSTfhilmnsu]|\\(B)").unwrap());
+static ANSI_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new("\x1b(\\[[0-9;?]*[A-HJKSTfhilmnsu]|\\(B)").unwrap());
 
 /// Convert ANSI sequences to styled text.
 pub fn ansi_to_text(mut input: &str) -> Result<Vec<StyledText>, Error> {
@@ -195,8 +196,8 @@ mod tests {
 
     #[test]
     fn test() {
-        let text = "[2m1970-01-01T00:00:00.000000Z[0m [32m INFO[0m [2mgraphql_starter::ansi::text::tests[0m[2m:[0m \
-                    test-event-#1";
+        let text = "[2m1970-01-01T00:00:00.000000Z[0m [32m INFO[0m \
+                    [2mgraphql_starter::ansi::text::tests[0m[2m:[0m test-event-#1";
         let mut res = ansi_to_text(text).unwrap();
 
         let date = res.remove(0);

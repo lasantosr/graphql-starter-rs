@@ -39,8 +39,11 @@ pub async fn altair_playground_handler(path: String, title: &str) -> impl IntoRe
 
 #[cfg(feature = "auth")]
 mod auth {
+    use std::sync::Arc;
+
     use async_graphql::{
-        http::ALL_WEBSOCKET_PROTOCOLS, BatchResponse, Data, ObjectType, Response, Schema, SubscriptionType,
+        http::ALL_WEBSOCKET_PROTOCOLS, BatchRequest, BatchResponse, Data, ObjectType, Response, Schema,
+        SubscriptionType,
     };
     use async_graphql_axum::{GraphQLProtocol, GraphQLResponse, GraphQLWebSocket};
     use axum::{
@@ -56,18 +59,26 @@ mod auth {
         request_id::RequestId,
     };
 
+    /// Middleware to customize the data attached to each GraphQL request.
+    pub trait RequestDataMiddleware<S: Subject>: Send + Sync + 'static {
+        /// Customize the given request data, inserting or modifying the content.
+        fn customize_request_data(&self, subject: Arc<Option<S>>, data: &mut Data);
+    }
+
     /// Handler for [batch requests](https://www.apollographql.com/blog/apollo-client/performance/batching-client-graphql-queries/).
     ///
-    /// Both [`Option<Subject>`](Subject) and [RequestId] will be added to the GraphQL context before executing the
+    /// Both [`Arc<Option<Subject>>`](Subject) and [RequestId] will be added to the GraphQL context before executing the
     /// request on the schema.
     ///
-    /// This handler expects three extensions:
+    /// This handler expects four extensions:
     /// - `Schema<Query, Mutation, Subscription>` with the GraphQL [Schema]
-    /// - `Option<Subject>` with the subject (see [CheckAuth](crate::auth::CheckAuth))
+    /// - `Arc<RequestDataMiddleware>` with the [RequestDataMiddleware]
+    /// - `Arc<Option<Subject>>` with the subject (see [CheckAuth](crate::auth::CheckAuth))
     /// - `RequestId` with the request id (see [RequestIdLayer](crate::request_id::RequestIdLayer))
-    pub async fn graphql_batch_handler<S: Subject, Query, Mutation, Subscription>(
+    pub async fn graphql_batch_handler<S: Subject, M: RequestDataMiddleware<S>, Query, Mutation, Subscription>(
         Extension(schema): Extension<Schema<Query, Mutation, Subscription>>,
-        Extension(subject): Extension<Option<S>>,
+        Extension(data_middleware): Extension<Arc<M>>,
+        Extension(subject): Extension<Arc<Option<S>>>,
         Extension(request_id): Extension<RequestId>,
         req: GraphQLBatchRequest,
     ) -> GraphQLResponse
@@ -76,7 +87,7 @@ mod auth {
         Mutation: ObjectType + 'static,
         Subscription: SubscriptionType + 'static,
     {
-        let req = req.into_inner();
+        let mut req = req.into_inner();
         // Log request operations
         if tracing::event_enabled!(tracing::Level::TRACE) {
             let op_names = req
@@ -86,9 +97,21 @@ mod auth {
                 .join(", ");
             tracing::trace!("request operations: {op_names}")
         }
-        // Include the subject and request_id from the Axum extension into the GraphQL context as well and execute the
-        // requests
-        let mut res = schema.execute_batch(req.data(subject).data(request_id)).await;
+        // Include the subject and request_id from the Axum extension into the GraphQL context as well
+        req = req.data(subject.clone()).data(request_id);
+        // Call the request data middleware
+        match &mut req {
+            BatchRequest::Single(r) => {
+                data_middleware.customize_request_data(subject, &mut r.data);
+            }
+            BatchRequest::Batch(b) => {
+                for r in b {
+                    data_middleware.customize_request_data(subject.clone(), &mut r.data);
+                }
+            }
+        }
+        // Execute the requests
+        let mut res = schema.execute_batch(req).await;
         // Include the request id if any error is found
         match &mut res {
             BatchResponse::Single(res) => include_request_id(res, &request_id),
@@ -105,18 +128,27 @@ mod auth {
     ///
     /// **Note**: This handler only works with `GET` method, it must always be used with [`get`](axum::routing::get).
     ///
-    /// Both [`Option<Subject>`](Subject) and [RequestId] will be added to the GraphQL context before executing the
+    /// Both [`Arc<Option<Subject>>`](Subject) and [RequestId] will be added to the GraphQL context before executing the
     /// request on the schema.
     ///
-    /// This handler expects two extensions:
+    /// This handler expects three extensions:
     /// - `Schema<Query, Mutation, Subscription>` with the GraphQL [Schema]
+    /// - `Arc<RequestDataMiddleware>` with the [RequestDataMiddleware]
     /// - `RequestId` with the request id (see [RequestIdLayer](crate::request_id::RequestIdLayer))
     ///
     /// Authentication will be performed using the same criteria than [CheckAuth](crate::auth::CheckAuth) extractor,
     /// retrieving the Cookie from the `GET` request and the token from the
     /// [`GQL_CONNECTION_INIT` message](https://github.com/apollographql/subscriptions-transport-ws/blob/master/PROTOCOL.md#gql_connection_init).
-    pub async fn graphql_subscription_handler<Query, Mutation, Subscription, S: Subject, State, B>(
+    pub async fn graphql_subscription_handler<
+        Query,
+        Mutation,
+        Subscription,
+        S: Subject,
+        M: RequestDataMiddleware<S>,
+        B,
+    >(
         Extension(schema): Extension<Schema<Query, Mutation, Subscription>>,
+        Extension(data_middleware): Extension<Arc<M>>,
         Extension(request_id): Extension<RequestId>,
         axum::extract::State(CorsState { cors }): axum::extract::State<CorsState>,
         axum::extract::State(AuthState { authn, authz: _ }): axum::extract::State<AuthState<S>>,
@@ -206,10 +238,14 @@ mod auth {
                             // Authenticate the subject
                             let subject = authn.authenticate(auth_token, auth_cookie_value.as_deref()).await?;
                             tracing::trace!("Authenticated as {subject}");
+                            let subject = Arc::new(Some(subject));
 
                             // Include the subject and request_id from the Axum extension into the GraphQL context
-                            data.insert(Some(subject.clone()));
+                            data.insert(subject.clone());
                             data.insert(request_id);
+
+                            // Call the request data middleware
+                            data_middleware.customize_request_data(subject, &mut data);
 
                             Ok(data)
                         }
