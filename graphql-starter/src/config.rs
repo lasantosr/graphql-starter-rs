@@ -13,7 +13,6 @@ use serde::de::DeserializeOwned;
 ///
 /// The order of precedence for properties is:
 /// - Environment variables, splitting objects by `_`
-/// - `local.toml`
 /// - `{profile}.toml`, where `{profile}` is retrieved from `PROFILE` environment variable and defaults to `development`
 /// - `default.toml`
 ///
@@ -26,10 +25,8 @@ pub fn read(path: impl AsRef<Path>) -> Figment {
     Figment::new()
         // Load defaults
         .merge(Toml::file(path.join("default.toml")))
-        // Load run mode overrides
+        // Load profile overrides
         .merge(Toml::file(path.join(format!("{profile}.toml"))))
-        // Load local overrides
-        .merge(Toml::file(path.join("local.toml")))
         // Load environment variables
         .merge(Env::raw().split("_"))
 }
@@ -38,7 +35,6 @@ pub fn read(path: impl AsRef<Path>) -> Figment {
 ///
 /// The order of precedence for properties is:
 /// - Environment variables, splitting objects by `_`
-/// - `local.toml`
 /// - `{profile}.toml`, where `{profile}` is retrieved from `PROFILE` environment variable and defaults to `development`
 /// - `default.toml`
 ///
@@ -94,7 +90,7 @@ mod tests {
                 "#,
             )?;
             jail.create_file(
-                "config/local.toml",
+                "config/development.toml",
                 r#"
                     port = 8081
                 "#,
