@@ -39,6 +39,7 @@ fn migrations() -> Migrator {
         "#,
         ),
         checksum: Cow::Owned(vec![1]),
+        no_tx: false,
     });
 
     for n in 1..=100 {
@@ -50,6 +51,7 @@ fn migrations() -> Migrator {
                 r#"INSERT INTO "todo" ("timestamp", "item") VALUES ('2023-01-01 10:00:00.{n:0>3}', 'item #{n}')"#
             )),
             checksum: Cow::Owned(vec![1]),
+            no_tx: false,
         });
     }
 
@@ -57,6 +59,7 @@ fn migrations() -> Migrator {
         migrations: Cow::Owned(migrations),
         ignore_missing: false,
         locking: true,
+        no_tx: false,
     }
 }
 
