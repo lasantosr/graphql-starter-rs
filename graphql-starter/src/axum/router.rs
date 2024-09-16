@@ -9,7 +9,7 @@ use axum::{
     serve::WithGracefulShutdown,
     Router,
 };
-use http::{HeaderMap, Method, Request, StatusCode};
+use http::{header::CONTENT_TYPE, HeaderMap, Method, Request, StatusCode};
 use serde_json::{json, Value};
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
@@ -21,7 +21,8 @@ use crate::request_id::{RequestId, RequestIdLayer};
 /// Add tracing and cors layers to the given router.
 ///
 /// The router will include a timeout layer with the given request timeout and a layer to verify that any non-GET
-/// request includes a `x-requested-with` custom header, to prevent CSRF attacks ([reference](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#employing-custom-request-headers-for-ajaxapi)).
+/// request includes a `x-requested-with` custom header or `content-type: application/json`, to prevent CSRF attacks
+/// ([reference](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#employing-custom-request-headers-for-ajaxapi)).
 ///
 /// For any GET route included afterwards that needs protection, the [`prevent_csrf`] middleware must be added to it.
 pub fn build_router<S>(
@@ -93,7 +94,9 @@ pub async fn prevent_csrf(
     }
 }
 
-/// Middleware to check that the `x-requested-with` custom header is present on non-get requests, failing if not
+/// Middleware to check that non-get requests contains one of the following, failing if not:
+///  - `content-type` header with `application/json` value
+///  - presence of `x-requested-with` custom header
 async fn check_custom_header(
     headers: HeaderMap,
     request: axum::extract::Request,
@@ -102,7 +105,9 @@ async fn check_custom_header(
     if request.method() != Method::OPTIONS // Always skip preflight
         && request.method() != Method::GET
         && headers.get("x-requested-with").is_none()
+        && headers.get(CONTENT_TYPE).and_then(|v| v.to_str().ok()).map(|v| !v.starts_with("application/json")).unwrap_or(true)
     {
+        dbg!(&request);
         tracing::debug!("The request is missing 'x-requested-with' header");
         Err((
             StatusCode::BAD_REQUEST,

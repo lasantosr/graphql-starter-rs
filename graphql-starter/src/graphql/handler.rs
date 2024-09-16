@@ -28,6 +28,7 @@ pub async fn altair_playground_handler(path: String, title: &str) -> impl IntoRe
                     "x-requested-with": "altair"
                 },
                 "initialSettings": {
+                    "addQueryDepthLimit": 1,
                     "request.withCredentials": true,
                     "plugin.list": ["altair-graphql-plugin-graphql-explorer"],
                     "schema.reloadOnStart": true,
