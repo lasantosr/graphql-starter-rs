@@ -142,70 +142,87 @@ impl From<Box<GraphQLError>> for async_graphql::Error {
 impl From<GraphQLError> for async_graphql::Error {
     fn from(e: GraphQLError) -> Self {
         // Trace the error when converting to async_graphql error, which is done just before responding to requests
-        if e.is_unexpected() {
-            tracing::error!("{}", e.to_string(true))
-        } else if tracing::event_enabled!(tracing::Level::DEBUG) {
-            tracing::warn!("{}", e.to_string(true))
-        } else {
-            tracing::warn!("{}", e.to_string(false))
+        let new_error = match &e {
+            GraphQLError::Async(err, _) => err
+                .extensions
+                .as_ref()
+                .map(|e| e.get("statusCode").is_none())
+                .unwrap_or(true),
+            GraphQLError::Custom(_) => true,
+        };
+        if new_error {
+            if e.is_unexpected() {
+                tracing::error!("{}", e.to_string(true))
+            } else if tracing::event_enabled!(tracing::Level::DEBUG) {
+                tracing::warn!("{}", e.to_string(true))
+            } else {
+                tracing::warn!("{}", e.to_string(false))
+            }
         }
 
         // Convert type
-        let (gql_err, err_info): (async_graphql::Error, Arc<dyn ErrorInfo + Send + Sync + 'static>) = match e {
+        let (gql_err, err_info): (async_graphql::Error, Option<Arc<dyn ErrorInfo + Send + Sync + 'static>>) = match e {
             GraphQLError::Async(mut err, _) => {
-                // Hide the message and provide generic internal error info
-                err.source = Some(Arc::new(err.message));
-                err.message = "Internal server error".into();
-                (err, Arc::new(GenericErrorCode::InternalServerError))
+                if new_error {
+                    // Hide the message and provide generic internal error info
+                    err.source = Some(Arc::new(err.message));
+                    err.message = "Internal server error".into();
+                    (err, Some(Arc::new(GenericErrorCode::InternalServerError)))
+                } else {
+                    // Already converted
+                    (err, None)
+                }
             }
             GraphQLError::Custom(err) => {
                 let source = err.source.map(|s| {
                     let source: Arc<dyn Any + Send + Sync> = Arc::new(s);
                     source
                 });
-                (
-                    async_graphql::Error {
-                        message: err.info.message(),
-                        source,
-                        extensions: None,
-                    }
-                    .extend_with(|_, e| {
-                        if let Some(prop) = err.properties {
-                            for (k, v) in prop.into_iter() {
-                                if k == "statusCode"
-                                    || k == "statusKind"
-                                    || k == "errorCode"
-                                    || k == "rawMessage"
-                                    || k == "messageFields"
-                                {
-                                    tracing::error!("Error '{}' contains a reserved property: {}", err.info.code(), k);
-                                    continue;
-                                }
-                                match async_graphql::Value::try_from(v) {
-                                    Ok(v) => e.set(k, v),
-                                    Err(err) => tracing::error!("Couldn't deserialize error value: {err}"),
-                                }
+                let async_err = async_graphql::Error {
+                    message: err.info.message(),
+                    source,
+                    extensions: None,
+                }
+                .extend_with(|_, e| {
+                    if let Some(prop) = err.properties {
+                        for (k, v) in prop.into_iter() {
+                            if k == "statusCode"
+                                || k == "statusKind"
+                                || k == "errorCode"
+                                || k == "rawMessage"
+                                || k == "messageFields"
+                            {
+                                tracing::error!("Error '{}' contains a reserved property: {}", err.info.code(), k);
+                                continue;
+                            }
+                            match async_graphql::Value::try_from(v) {
+                                Ok(v) => e.set(k, v),
+                                Err(err) => tracing::error!("Couldn't deserialize error value: {err}"),
                             }
                         }
-                    }),
-                    err.info,
-                )
+                    }
+                });
+                (async_err, Some(err.info))
             }
         };
-        // Append error info properties
-        gql_err.extend_with(|_, e| {
-            let status = err_info.status();
-            e.set("statusCode", status.as_u16());
-            if let Some(reason) = status.canonical_reason() {
-                e.set("statusKind", reason);
-            }
-            e.set("errorCode", err_info.code());
-            e.set("rawMessage", err_info.raw_message());
-            let fields = err_info.fields();
-            if !fields.is_empty() {
-                let fields_map = IndexMap::from_iter(fields.into_iter().map(|(k, v)| (Name::new(k), v.into())));
-                e.set("messageFields", fields_map);
-            }
-        })
+        if let Some(err_info) = err_info {
+            // Append error info properties
+            gql_err.extend_with(|_, e| {
+                let status = err_info.status();
+                e.set("statusCode", status.as_u16());
+                if let Some(reason) = status.canonical_reason() {
+                    e.set("statusKind", reason);
+                }
+                e.set("errorCode", err_info.code());
+                e.set("rawMessage", err_info.raw_message());
+                let fields = err_info.fields();
+                if !fields.is_empty() {
+                    let fields_map = IndexMap::from_iter(fields.into_iter().map(|(k, v)| (Name::new(k), v.into())));
+                    e.set("messageFields", fields_map);
+                }
+            })
+        } else {
+            gql_err
+        }
     }
 }

@@ -28,7 +28,7 @@ impl From<RequestId> for Ulid {
 
 impl From<RequestId> for Uuid {
     fn from(value: RequestId) -> Self {
-        Uuid::from_u128(value.0.0)
+        Uuid::from_u128(value.0 .0)
     }
 }
 

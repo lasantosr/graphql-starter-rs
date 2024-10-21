@@ -1,11 +1,17 @@
 //! Utilities to work with [sqlx]
 
 /// Similar to `sqlx::query_as!` but with pagination capabilities.
-/// 
+///
 /// **Note**: this macro won't populate `total_items` in the resulting page, it must be queried afterwards if needed.
 #[macro_export]
 macro_rules! sqlx_query_paginated_as {
-    ($page:ident, $executor:expr, [$($cols:ident $(. $order:ident())? : $ty:path),*], $out_struct:path, $query:expr) => (
+    (
+        $page:ident,
+        $executor:expr,
+        [$($cols:ident $(. $order:ident())? : $ty:path),*],
+        $out_struct:path,
+        $query:expr
+    ) => (
         $crate::sqlx_query_paginated_as!(
             columns = [$($cols $(. $order())? : $ty),*],
             page = $page,
@@ -16,7 +22,14 @@ macro_rules! sqlx_query_paginated_as {
         )
     );
 
-    ($page:ident, $executor:expr, [$($cols:ident $(. $order:ident())? : $ty:path),*], $out_struct:path, $query:expr, $($args:tt)*) => (
+    (
+        $page:ident,
+        $executor:expr,
+        [$($cols:ident $(. $order:ident())? : $ty:path),*],
+        $out_struct:path,
+        $query:expr,
+        $($args:tt)*
+    ) => (
         $crate::sqlx_query_paginated_as!(
             columns = [$($cols $(. $order())? : $ty),*],
             page = $page,
