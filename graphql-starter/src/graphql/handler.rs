@@ -51,6 +51,8 @@ mod auth {
         extract::{FromRequestParts, WebSocketUpgrade},
         response::IntoResponse,
     };
+    use futures_util::{stream::FuturesOrdered, StreamExt};
+    use tracing::Instrument;
 
     use crate::{
         auth::{AuthErrorCode, AuthState, Subject},
@@ -111,8 +113,29 @@ mod auth {
                 }
             }
         }
-        // Execute the requests
-        let mut res = schema.execute_batch(req).await;
+        // Execute the requests, instrumenting them with the operation name (if present)
+        let mut res = match req {
+            BatchRequest::Single(request) => {
+                let span = if let Some(op) = &request.operation_name {
+                    tracing::info_span!("gql", %op)
+                } else {
+                    tracing::info_span!("gql")
+                };
+                BatchResponse::Single(schema.execute(request).instrument(span).await)
+            }
+            BatchRequest::Batch(requests) => BatchResponse::Batch(
+                FuturesOrdered::from_iter(requests.into_iter().map(|request| {
+                    let span = if let Some(op) = &request.operation_name {
+                        tracing::info_span!("gql", %op)
+                    } else {
+                        tracing::info_span!("gql")
+                    };
+                    schema.execute(request).instrument(span)
+                }))
+                .collect()
+                .await,
+            ),
+        };
         // Include the request id if any error is found
         match &mut res {
             BatchResponse::Single(res) => include_request_id(res, &request_id),

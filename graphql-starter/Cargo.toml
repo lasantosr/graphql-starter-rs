@@ -18,7 +18,7 @@ default = ["full"]
 full = ["graphql", "config", "tracing", "auth", "sqlx", "error-info-summary", "ansi", "chrono"]
 
 # GraphQL module
-graphql = ["dep:async-graphql", "dep:async-graphql-axum", "dep:tokio-util", "dep:indexmap", "paste"]
+graphql = ["dep:async-graphql", "dep:async-graphql-axum", "dep:tokio-util", "dep:futures-util", "dep:indexmap", "paste"]
 
 # Config module
 config = ["dep:figment"]
