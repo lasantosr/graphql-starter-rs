@@ -4,6 +4,7 @@ pub mod pagination;
 pub mod queried_fields;
 pub mod request_id;
 pub mod serde;
+pub mod timeout;
 
 #[cfg(feature = "ansi")]
 pub mod ansi;

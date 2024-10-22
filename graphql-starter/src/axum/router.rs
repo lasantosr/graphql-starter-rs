@@ -13,10 +13,18 @@ use http::{header::CONTENT_TYPE, HeaderMap, Method, Request, StatusCode};
 use serde_json::{json, Value};
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
-use tower_http::{limit::RequestBodyLimitLayer, timeout::TimeoutLayer, trace::TraceLayer};
+use tower_http::{
+    limit::RequestBodyLimitLayer,
+    trace::{DefaultOnFailure, TraceLayer},
+};
+use tracing::Level;
 
 use super::{extract::Json, CorsState};
-use crate::request_id::{RequestId, RequestIdLayer};
+use crate::{
+    error::GenericErrorCode,
+    request_id::{RequestId, RequestIdLayer},
+    timeout::TimeoutLayer,
+};
 
 /// Add tracing and cors layers to the given router.
 ///
@@ -44,25 +52,27 @@ where
         .layer(RequestIdLayer)
         // Create a tracing span for each request with useful info
         .layer(
-            TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
-                let uri = request.uri().path();
-                match request
-                    .extensions()
-                    .get::<RequestId>()
-                    .map(ToString::to_string) {
-                        Some(request_id) => tracing::info_span!(
-                            "req",
-                            id = %request_id,
-                            method = %request.method(),
-                            uri = %uri,
-                        ),
-                        None => tracing::info_span!(
-                            "req",
-                            method = %request.method(),
-                            uri = %uri,
-                        )
-                    }
-            }),
+            TraceLayer::new_for_http()
+                .on_failure(DefaultOnFailure::new().level(Level::DEBUG))
+                .make_span_with(|request: &Request<Body>| {
+                    let uri = request.uri().path();
+                    match request
+                        .extensions()
+                        .get::<RequestId>()
+                        .map(ToString::to_string) {
+                            Some(request_id) => tracing::info_span!(
+                                "req",
+                                id = %request_id,
+                                method = %request.method(),
+                                uri = %uri,
+                            ),
+                            None => tracing::info_span!(
+                                "req",
+                                method = %request.method(),
+                                uri = %uri,
+                            )
+                        }
+                }),
         )
         // Always check that a custom header is set, to prevent CSRF attacks
         .layer(middleware::from_fn(check_custom_header))
@@ -71,7 +81,7 @@ where
         // Add CORS layer as well
         .layer(cors.build_cors_layer().context("couldn't build CORS layer")?)
         // Add a timeout so requests don't hang forever
-        .layer(TimeoutLayer::new(request_timeout));
+        .layer(TimeoutLayer::new(request_timeout, (GenericErrorCode::GatewayTimeout,)));
 
     Ok(router.layer(layers).with_state(state))
 }
@@ -107,7 +117,6 @@ async fn check_custom_header(
         && headers.get("x-requested-with").is_none()
         && headers.get(CONTENT_TYPE).and_then(|v| v.to_str().ok()).map(|v| !v.starts_with("application/json")).unwrap_or(true)
     {
-        dbg!(&request);
         tracing::debug!("The request is missing 'x-requested-with' header");
         Err((
             StatusCode::BAD_REQUEST,
