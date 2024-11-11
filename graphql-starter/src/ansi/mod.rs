@@ -3,12 +3,12 @@
 // These modules comes from https://github.com/Aloso/to-html/blob/main/crates/ansi-to-html
 crate::using! {
     ansi,
-    color
+    color,
 }
 
 crate::using! {
     pub text,
-    minifier
+    minifier,
 }
 
 pub use ansi_to_html::Error;

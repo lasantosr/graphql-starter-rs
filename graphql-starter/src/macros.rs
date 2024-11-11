@@ -58,7 +58,7 @@ macro_rules! newtype_impl {
 /// ```
 #[macro_export]
 macro_rules! using {
-    ($($v:vis $p:ident),*) => {
+    ($($v:vis $p:ident),* $(,)?) => {
         $(
             mod $p;
             $v use self::$p::*;

@@ -6,7 +6,7 @@ crate::using! {
     pub queried_fields,
     pub sdl,
     pub handler,
-    pub extract
+    pub extract,
 }
 
 #[cfg(feature = "auth")]

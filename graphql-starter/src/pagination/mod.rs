@@ -3,5 +3,5 @@
 crate::using! {
     pub error,
     pub cursor,
-    pub page
+    pub page,
 }

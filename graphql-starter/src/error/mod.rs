@@ -2,7 +2,7 @@
 
 crate::using! {
     pub core,
-    pub api
+    pub api,
 }
 
 #[cfg(feature = "graphql")]

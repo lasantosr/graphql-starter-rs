@@ -4,5 +4,5 @@ pub mod extract;
 
 crate::using! {
     pub cors,
-    pub router
+    pub router,
 }

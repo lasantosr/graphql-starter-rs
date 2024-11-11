@@ -2,5 +2,5 @@
 
 crate::using! {
     pub common,
-    pub writer
+    pub writer,
 }
