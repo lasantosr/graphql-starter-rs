@@ -43,7 +43,8 @@ where
                     "Couldn't parse auth header value",
                 )
             })
-            .transpose()?;
+            .transpose()?
+            .filter(|t| !t.is_empty());
 
         // Extract the auth cookie (if any)
         let auth_cookie_name = authn.cookie_name();
@@ -59,7 +60,8 @@ where
                 cookies
                     .split("; ")
                     .find_map(|cookie| cookie.strip_prefix(&format!("{auth_cookie_name}=")))
-            });
+            })
+            .filter(|c| !c.is_empty());
 
         // Authenticate the subject
         let sub = if auth_token.is_none() && auth_cookie_value.is_none() {
