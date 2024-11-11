@@ -39,13 +39,13 @@ pub fn read(path: impl AsRef<Path>) -> Figment {
 /// - `default.toml`
 ///
 /// **IMPORTANT:** Properties names can't contain underscores, as they're reserved to split nested objects. `T` can
-/// still contain underscored properties if they are properly renamed when deserializing:
+/// still contain underscored properties if they have an alias when deserializing:
 ///
 /// ``` ignore
 /// #[derive(Deserialize)]
 /// struct Config {
 ///     name: String,
-///     #[serde(rename = "nameprefix")]
+///     #[serde(alias = "nameprefix")]
 ///     name_prefix: String,
 /// }
 /// ```
