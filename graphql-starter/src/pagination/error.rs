@@ -9,6 +9,8 @@ pub enum PaginationErrorCode {
     PageMissing,
     #[error(status=StatusCode::BAD_REQUEST, message = "The \"{field}\" parameter must be a non-negative number")]
     PageNegativeInput { field: &'static str },
+    #[error(status=StatusCode::BAD_REQUEST, message = "The \"{field}\" parameter can't exceed {max}")]
+    PageExceedsLimit { field: &'static str, max: usize },
     #[error(status=StatusCode::BAD_REQUEST, message = "The \"first\" and \"last\" parameters cannot exist at the same time")]
     PageFirstAndLast,
     #[error(status=StatusCode::BAD_REQUEST, message = "The \"after\" and \"before\" parameters cannot exist at the same time")]

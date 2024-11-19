@@ -56,6 +56,7 @@ impl PageQuery {
         after: Option<OpaqueCursor>,
         before: Option<OpaqueCursor>,
         default_limit: Option<usize>,
+        max_page_size: Option<usize>,
     ) -> Result<Self> {
         // Set defaults if set
         if let Some(default_limit) = default_limit {
@@ -86,6 +87,12 @@ impl PageQuery {
         }
 
         if let Some(first) = first {
+            // Validate maximum, if set
+            if let Some(max) = max_page_size {
+                if first > max {
+                    return Err((PaginationErrorCode::PageExceedsLimit { field: "first", max },).into());
+                }
+            }
             // Forward paginating
             if before.is_some() {
                 Err((PaginationErrorCode::PageForwardWithBefore,).into())
@@ -93,6 +100,12 @@ impl PageQuery {
                 Ok(PageQuery::Forward(ForwardPageQuery { first, after }))
             }
         } else if let Some(last) = last {
+            // Validate maximum, if set
+            if let Some(max) = max_page_size {
+                if last > max {
+                    return Err((PaginationErrorCode::PageExceedsLimit { field: "last", max },).into());
+                }
+            }
             // Backward paginating
             if after.is_some() {
                 Err((PaginationErrorCode::PageBackwardWithAfter,).into())
@@ -111,6 +124,7 @@ impl PageQuery {
         after: Option<String>,
         before: Option<String>,
         default_limit: Option<usize>,
+        max_page_size: Option<usize>,
     ) -> Result<Self> {
         // Decode cursors
         let after = after
@@ -128,7 +142,7 @@ impl PageQuery {
             )?;
 
         // Return
-        Self::new(first, last, after, before, default_limit)
+        Self::new(first, last, after, before, default_limit, max_page_size)
     }
 }
 
@@ -406,7 +420,15 @@ mod tests {
     fn test_forward_pagination() {
         let page = Page::from_items(
             (0..5).collect(),
-            PageQuery::decode(Some(1), None, Some(BASE64_URL_SAFE_NO_PAD.encode("3")), None, None).unwrap(),
+            PageQuery::decode(
+                Some(1),
+                None,
+                Some(BASE64_URL_SAFE_NO_PAD.encode("3")),
+                None,
+                None,
+                None,
+            )
+            .unwrap(),
         )
         .unwrap();
 
@@ -420,7 +442,15 @@ mod tests {
     fn test_backward_pagination() {
         let page = Page::from_items(
             (0..20).collect(),
-            PageQuery::decode(None, Some(6), None, Some(BASE64_URL_SAFE_NO_PAD.encode("9")), None).unwrap(),
+            PageQuery::decode(
+                None,
+                Some(6),
+                None,
+                Some(BASE64_URL_SAFE_NO_PAD.encode("9")),
+                None,
+                None,
+            )
+            .unwrap(),
         )
         .unwrap();
 
