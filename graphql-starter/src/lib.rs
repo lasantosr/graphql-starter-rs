@@ -9,6 +9,10 @@ pub mod request_id;
 pub mod serde;
 pub mod timeout;
 
+pub use error::{ApiError, Error, Result};
+#[cfg(feature = "graphql")]
+pub use error::{GraphQLError, GraphQLResult};
+
 #[cfg(feature = "ansi")]
 pub mod ansi;
 
