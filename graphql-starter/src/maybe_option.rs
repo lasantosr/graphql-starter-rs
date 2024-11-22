@@ -189,21 +189,27 @@ impl<T, E> MaybeOption<Result<T, E>> {
     }
 }
 
-impl<T> From<MaybeOption<T>> for Option<Option<T>> {
+impl<T, U> From<MaybeOption<T>> for Option<Option<U>>
+where
+    U: From<T>,
+{
     fn from(value: MaybeOption<T>) -> Self {
         match value {
             MaybeOption::Unset => None,
             MaybeOption::None => Some(None),
-            MaybeOption::Some(t) => Some(Some(t)),
+            MaybeOption::Some(t) => Some(Some(U::from(t))),
         }
     }
 }
-impl<T> From<Option<Option<T>>> for MaybeOption<T> {
+impl<T, U> From<Option<Option<T>>> for MaybeOption<U>
+where
+    U: From<T>,
+{
     fn from(value: Option<Option<T>>) -> Self {
         match value {
             None => Self::Unset,
             Some(None) => Self::None,
-            Some(Some(t)) => Self::Some(t),
+            Some(Some(t)) => Self::Some(U::from(t)),
         }
     }
 }
@@ -273,6 +279,57 @@ pub mod graphql {
                 value.as_raw_value()
             } else {
                 None
+            }
+        }
+    }
+}
+
+#[cfg(feature = "model-mapper")]
+pub mod mapper {
+    use model_mapper::with::{NestedWrapper, Wrapper};
+
+    use super::*;
+
+    impl<T> Wrapper<T> for MaybeOption<T> {
+        type Wrapper<U> = MaybeOption<U>;
+
+        fn map_inner<Z: Fn(T) -> U, U>(self, f: Z) -> Self::Wrapper<U> {
+            self.map(f)
+        }
+
+        fn try_map_inner<Z: Fn(T) -> Result<U, E>, U, E>(self, f: Z) -> Result<Self::Wrapper<U>, E> {
+            self.map(f).transpose()
+        }
+    }
+
+    impl<W: Wrapper<T>, T> NestedWrapper<W, T> for MaybeOption<W> {
+        type NestedWrapper<U> = MaybeOption<W::Wrapper<U>>;
+
+        fn map_wrapper<Z: Fn(T) -> U, U>(self, f: Z) -> Self::NestedWrapper<U> {
+            self.map(|i| i.map_inner(f))
+        }
+
+        fn try_map_wrapper<Z: Fn(T) -> Result<U, E>, U, E>(self, f: Z) -> Result<Self::NestedWrapper<U>, E> {
+            self.map(|i| i.try_map_inner(f)).transpose()
+        }
+    }
+}
+
+#[cfg(feature = "garde")]
+pub mod garde {
+    use ::garde::{error::NoKey, rules::inner::Inner};
+
+    use super::*;
+
+    impl<T> Inner<T> for MaybeOption<T> {
+        type Key = NoKey;
+
+        fn validate_inner<F>(&self, mut f: F)
+        where
+            F: FnMut(&T, &Self::Key),
+        {
+            if let MaybeOption::Some(item) = self {
+                f(item, &NoKey::default())
             }
         }
     }

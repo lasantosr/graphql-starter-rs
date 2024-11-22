@@ -57,6 +57,10 @@ paste = ["dep:paste"]
 # Re-export starter macros
 macros = ["dep:graphql-starter-macros"]
 
+# Dependencies
+model-mapper = ["dep:model-mapper"]
+garde = ["dep:garde"]
+
 [dependencies]
 graphql-starter-macros = { workspace = true, optional = true }
 
@@ -89,8 +93,10 @@ axum-server        = { workspace = true, optional = true }
 chrono             = { workspace = true, optional = true }
 figment            = { workspace = true, optional = true, features = ["env", "toml"] }
 futures-util       = { workspace = true, optional = true }
+garde              = { workspace = true, optional = true }
 indexmap           = { workspace = true, optional = true }
 linkme             = { workspace = true, optional = true }
+model-mapper       = { workspace = true, optional = true }
 parking_lot        = { workspace = true, optional = true }
 paste              = { workspace = true, optional = true }
 rcgen              = { workspace = true, optional = true }
