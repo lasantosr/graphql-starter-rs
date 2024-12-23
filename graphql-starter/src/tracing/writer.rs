@@ -80,7 +80,7 @@ pub struct WriterInterceptor<'a, W: io::Write> {
     stream_tx: Option<Sender<String>>,
 }
 
-impl<'a, W: io::Write> WriterInterceptor<'a, W> {
+impl<W: io::Write> WriterInterceptor<'_, W> {
     fn intercept_line(&mut self, line: &str) {
         // Push the event to the vec if accumulate is enabled
         if self.accumulate > 0 {
@@ -99,7 +99,7 @@ impl<'a, W: io::Write> WriterInterceptor<'a, W> {
     }
 }
 
-impl<'a, W: io::Write> io::Write for WriterInterceptor<'a, W> {
+impl<W: io::Write> io::Write for WriterInterceptor<'_, W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         if let Ok(line) = std::str::from_utf8(buf) {
             self.intercept_line(line);

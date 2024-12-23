@@ -317,9 +317,24 @@ pub mod mapper {
 
 #[cfg(feature = "garde")]
 pub mod garde {
-    use ::garde::{error::NoKey, rules::inner::Inner};
+    use ::garde::{error::NoKey, rules::inner::Inner, Validate};
 
     use super::*;
+
+    impl<T: Validate> Validate for MaybeOption<T> {
+        type Context = T::Context;
+
+        fn validate_into(
+            &self,
+            ctx: &Self::Context,
+            parent: &mut dyn FnMut() -> ::garde::Path,
+            report: &mut ::garde::Report,
+        ) {
+            if let MaybeOption::Some(value) = self {
+                value.validate_into(ctx, parent, report)
+            }
+        }
+    }
 
     impl<T> Inner<T> for MaybeOption<T> {
         type Key = NoKey;
