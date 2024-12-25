@@ -3,6 +3,8 @@
 //! It avoids having to use [WithRejection](https://docs.rs/axum-extra/latest/axum_extra/extract/struct.WithRejection.html)
 //! every time
 
+use std::sync::Arc;
+
 use axum::{
     extract::{FromRequest, FromRequestParts, Request},
     response::{IntoResponse, Response},
@@ -141,5 +143,39 @@ where
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         Ok(ExtensionOpt(parts.extensions.get::<T>().cloned()))
+    }
+}
+
+/// Extractor for an optional `Accept-Languages` header
+#[derive(Debug, Clone, Default)]
+pub struct AcceptLanguage(pub Option<Arc<Vec<String>>>);
+impl AcceptLanguage {
+    /// Returns the list of accepted languages, ordered by quality descending
+    pub fn accepted_languages(&self) -> Option<&[String]> {
+        self.0.as_deref().map(|s| s.as_slice())
+    }
+
+    /// Returns the first accepted language, the one with higher quality
+    pub fn preferred_language(&self) -> Option<&str> {
+        self.accepted_languages().and_then(|l| l.first().map(|s| s.as_str()))
+    }
+}
+
+#[axum::async_trait]
+impl<S> FromRequestParts<S> for AcceptLanguage
+where
+    S: Send + Sync,
+{
+    type Rejection = Box<ApiError>;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        // Extract the header and parse it (if any)
+        let accept_language = parts
+            .headers
+            .get(http::header::ACCEPT_LANGUAGE)
+            .and_then(|v| v.to_str().ok().map(accept_language::parse).map(Arc::new))
+            .filter(|v| !v.is_empty());
+
+        Ok(AcceptLanguage(accept_language))
     }
 }

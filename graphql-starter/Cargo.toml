@@ -64,6 +64,7 @@ garde = ["dep:garde"]
 [dependencies]
 graphql-starter-macros = { workspace = true, optional = true }
 
+accept-language  = { workspace = true }
 anyhow           = { workspace = true }
 async-trait      = { workspace = true }
 axum             = { workspace = true, features = ["ws"] }

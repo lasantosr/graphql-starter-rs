@@ -56,7 +56,10 @@ mod auth {
 
     use crate::{
         auth::{AuthErrorCode, AuthState, Subject},
-        axum::{extract::Extension, CorsState},
+        axum::{
+            extract::{AcceptLanguage, Extension},
+            CorsState,
+        },
         error::{ApiError, GenericErrorCode, MapToErr},
         graphql::GraphQLBatchRequest,
         request_id::RequestId,
@@ -65,7 +68,7 @@ mod auth {
     /// Middleware to customize the data attached to each GraphQL request.
     pub trait RequestDataMiddleware<S: Subject>: Send + Sync + 'static {
         /// Customize the given request data, inserting or modifying the content.
-        fn customize_request_data(&self, subject: Arc<Option<S>>, data: &mut Data);
+        fn customize_request_data(&self, subject: &Arc<Option<S>>, accept_language: &AcceptLanguage, data: &mut Data);
     }
 
     /// Handler for [batch requests](https://www.apollographql.com/blog/apollo-client/performance/batching-client-graphql-queries/).
@@ -83,6 +86,7 @@ mod auth {
         Extension(data_middleware): Extension<Arc<M>>,
         Extension(subject): Extension<Arc<Option<S>>>,
         Extension(request_id): Extension<RequestId>,
+        accept_language: AcceptLanguage,
         req: GraphQLBatchRequest,
     ) -> GraphQLResponse
     where
@@ -100,19 +104,21 @@ mod auth {
                 .join(", ");
             tracing::trace!("request operations: {op_names}")
         }
-        // Include the subject and request_id from the Axum extension into the GraphQL context as well
-        req = req.data(subject.clone()).data(request_id);
-        // Call the request data middleware
+        // Call the request data middleware to include additional data
         match &mut req {
             BatchRequest::Single(r) => {
-                data_middleware.customize_request_data(subject, &mut r.data);
+                data_middleware.customize_request_data(&subject, &accept_language, &mut r.data);
             }
             BatchRequest::Batch(b) => {
                 for r in b {
-                    data_middleware.customize_request_data(subject.clone(), &mut r.data);
+                    data_middleware.customize_request_data(&subject, &accept_language, &mut r.data);
                 }
             }
         }
+        // Include the subject and request_id from the Axum extension into the GraphQL context as well
+        req = req.data(subject.clone()).data(request_id);
+        // Include also the extracted accept language header
+        req = req.data(accept_language);
         // Execute the requests, instrumenting them with the operation name (if present)
         let mut res = match req {
             BatchRequest::Single(request) => {
@@ -176,6 +182,7 @@ mod auth {
         Extension(request_id): Extension<RequestId>,
         axum::extract::State(CorsState { cors }): axum::extract::State<CorsState>,
         axum::extract::State(AuthState { authn, authz: _ }): axum::extract::State<AuthState<S>>,
+        accept_language: AcceptLanguage,
         req: http::Request<B>,
     ) -> axum::response::Response
     where
@@ -264,12 +271,15 @@ mod auth {
                             tracing::trace!("Authenticated as {subject}");
                             let subject = Arc::new(Some(subject));
 
+                            // Call the request data middleware to include additional data
+                            data_middleware.customize_request_data(&subject, &accept_language, &mut data);
+
                             // Include the subject and request_id from the Axum extension into the GraphQL context
                             data.insert(subject.clone());
                             data.insert(request_id);
 
-                            // Call the request data middleware
-                            data_middleware.customize_request_data(subject, &mut data);
+                            // Include also the extracted accept language header
+                            data.insert(accept_language);
 
                             Ok(data)
                         }
