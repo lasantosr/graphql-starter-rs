@@ -24,14 +24,7 @@ graphql = ["dep:async-graphql", "dep:async-graphql-axum", "dep:tokio-util", "dep
 config = ["dep:figment"]
 
 # Tracing module
-tracing = [
-    "dep:tracing-subscriber",
-    "tracing-subscriber?/env-filter",
-    "dep:parking_lot",
-    "dep:tokio-stream",
-    "tokio/sync",
-    "tokio-stream?/sync",
-]
+tracing = ["dep:tracing-subscriber", "dep:parking_lot", "dep:tokio-stream", "tokio/sync", "tokio-stream?/sync"]
 
 # Auth module
 auth = ["macros", "graphql-starter-macros?/subject"]
