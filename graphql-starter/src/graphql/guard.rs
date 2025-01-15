@@ -4,7 +4,7 @@ use async_graphql::{Context, Guard, Result};
 
 use crate::{
     auth::{AuthErrorCode, AuthorizationService, Subject},
-    error::GraphQLError,
+    error::{err, GraphQLError},
 };
 
 /// Authorization [Guard].
@@ -31,15 +31,20 @@ impl<S: Subject> AuthGuard<S> {
 
 impl<S: Subject> Guard for AuthGuard<S> {
     async fn check(&self, ctx: &Context<'_>) -> Result<()> {
-        let sub = ctx.data::<Arc<Option<S>>>().map_err(GraphQLError::from)?.as_ref();
+        let sub = ctx
+            .data::<Arc<Option<S>>>()
+            .map_err(Box::<GraphQLError>::from)?
+            .as_ref();
         match sub {
             Some(sub) => {
                 let authz = ctx
                     .data::<Arc<dyn AuthorizationService<S>>>()
-                    .map_err(GraphQLError::from)?;
+                    .map_err(Box::<GraphQLError>::from)?;
                 Ok(authz.authorize(sub, self.relation, self.object).await?)
             }
-            None => Err(GraphQLError::from((AuthErrorCode::AuthMissing, "The subject must be authenticated")).into()),
+            None => Err(
+                GraphQLError::from_err(err!(AuthErrorCode::AuthMissing, "The subject must be authenticated")).into(),
+            ),
         }
     }
 }

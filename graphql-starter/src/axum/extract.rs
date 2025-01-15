@@ -10,10 +10,11 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use bytes::{BufMut, BytesMut};
+use error_info::ErrorInfo;
 use http::{header, request::Parts, HeaderValue};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::error::{ApiError, MapToErr};
+use crate::error::{ApiError, GenericErrorCode, MapToErr};
 
 /// Wrapper over [axum::Json] to customize error responses
 #[derive(Debug, Clone, Copy, Default)]
@@ -34,7 +35,7 @@ where
             .map(|::axum::Json(value)| Json(value))
             .map_err(|err| {
                 tracing::info!("Couldn't parse json request: {err}");
-                ApiError::new(err.status(), err.body_text()).boxed()
+                ApiError::new(err.status(), err.body_text())
             })
     }
 }
@@ -55,7 +56,7 @@ where
                 buf.into_inner().freeze(),
             )
                 .into_response(),
-            Err(err) => ApiError::from(err).into_response(),
+            Err(err) => ApiError::from_err(err).into_response(),
         }
     }
 }
@@ -78,7 +79,7 @@ where
             .map(|::axum::extract::Query(value)| Query(value))
             .map_err(|err| {
                 tracing::info!("Couldn't parse request query: {err}");
-                ApiError::new(err.status(), err.body_text()).boxed()
+                ApiError::new(err.status(), err.body_text())
             })
     }
 }
@@ -101,7 +102,7 @@ where
             .map(|::axum::extract::Path(value)| Path(value))
             .map_err(|err| {
                 tracing::warn!("Couldn't extract request path: {err}");
-                ApiError::new(err.status(), err.body_text()).boxed()
+                ApiError::new(err.status(), err.body_text())
             })
     }
 }
@@ -124,7 +125,7 @@ where
             .map(|::axum::Extension(value)| Extension(value))
             .map_err(|err| {
                 tracing::warn!("Couldn't extract extension: {err}");
-                ApiError::new(err.status(), "Internal server error").boxed()
+                ApiError::new(err.status(), GenericErrorCode::InternalServerError.raw_message())
             })
     }
 }

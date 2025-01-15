@@ -9,6 +9,7 @@ use std::{
 };
 
 use axum::response::{IntoResponse, Response};
+use error_info::ErrorInfo;
 use http::Request;
 use pin_project_lite::pin_project;
 use tokio::time::Sleep;
@@ -20,14 +21,14 @@ use crate::error::{ApiError, Error};
 ///
 /// See the [module docs](super) for an example.
 #[derive(Debug, Clone, Copy)]
-pub struct TimeoutLayer<T: Into<Error> + Clone> {
+pub struct TimeoutLayer<T: ErrorInfo + Send + Sync + Copy + 'static> {
     timeout: Duration,
     response: T,
 }
 
 impl<T> TimeoutLayer<T>
 where
-    T: Into<Error> + Clone,
+    T: ErrorInfo + Send + Sync + Copy + 'static,
 {
     /// Creates a new [`TimeoutLayer`].
     pub fn new(timeout: Duration, response: T) -> Self {
@@ -37,12 +38,12 @@ where
 
 impl<T, S> Layer<S> for TimeoutLayer<T>
 where
-    T: Into<Error> + Clone,
+    T: ErrorInfo + Send + Sync + Copy + 'static,
 {
     type Service = Timeout<S, T>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        Timeout::new(inner, self.timeout, self.response.clone())
+        Timeout::new(inner, self.timeout, self.response)
     }
 }
 
@@ -61,7 +62,7 @@ pub struct Timeout<S, T> {
 
 impl<S, T> Timeout<S, T>
 where
-    T: Into<Error> + Clone,
+    T: ErrorInfo + Send + Sync + Copy + 'static,
 {
     /// Creates a new [`Timeout`].
     pub fn new(inner: S, timeout: Duration, response: T) -> Self {
@@ -76,7 +77,7 @@ where
 impl<S, T, ReqBody> Service<Request<ReqBody>> for Timeout<S, T>
 where
     S: Service<Request<ReqBody>, Response = Response>,
-    T: Into<Error> + Clone,
+    T: ErrorInfo + Send + Sync + Copy + 'static,
 {
     type Error = S::Error;
     type Future = ResponseFuture<S::Future, T>;
@@ -92,7 +93,7 @@ where
         ResponseFuture {
             inner: self.inner.call(req),
             sleep,
-            response: self.response.clone(),
+            response: self.response,
         }
     }
 }
@@ -112,7 +113,7 @@ pin_project! {
 impl<F, T, E> Future for ResponseFuture<F, T>
 where
     F: Future<Output = Result<Response, E>>,
-    T: Into<Error> + Clone,
+    T: ErrorInfo + Send + Sync + Copy + 'static,
 {
     type Output = Result<Response, E>;
 
@@ -120,7 +121,7 @@ where
         let this = self.project();
 
         if this.sleep.poll(cx).is_ready() {
-            let err = ApiError::from(this.response.clone());
+            let err = ApiError::from_err(Error::new(*this.response));
             return Poll::Ready(Ok(err.into_response()));
         }
 

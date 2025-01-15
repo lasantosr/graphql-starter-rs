@@ -81,7 +81,7 @@ where
         // Add CORS layer as well
         .layer(cors.build_cors_layer().context("couldn't build CORS layer")?)
         // Add a timeout so requests don't hang forever
-        .layer(TimeoutLayer::new(request_timeout, (GenericErrorCode::GatewayTimeout,)));
+        .layer(TimeoutLayer::new(request_timeout, GenericErrorCode::GatewayTimeout));
 
     Ok(router.layer(layers).with_state(state))
 }

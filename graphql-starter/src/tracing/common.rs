@@ -117,7 +117,7 @@ where
         fn_update_filter: Box::new(move |new_filter| {
             let new_filter = new_filter
                 .parse::<Targets>()
-                .map_to_err(GenericErrorCode::BadRequest, "Couldn't parse filter")?;
+                .map_to_err_with(GenericErrorCode::BadRequest, "Couldn't parse the filter")?;
             handler
                 .modify(|layer| *layer.filter_mut() = new_filter)
                 .map_to_internal_err("Couldn't update tracing filter")
@@ -188,7 +188,7 @@ where
         fn_update_filter: Box::new(move |new_filter| {
             let new_filter = new_filter
                 .parse::<Targets>()
-                .map_to_err(GenericErrorCode::BadRequest, "Couldn't parse filter")?;
+                .map_to_err_with(GenericErrorCode::BadRequest, "Couldn't parse the filter")?;
             handler
                 .modify(|layer| *layer.filter_mut() = new_filter)
                 .map_to_internal_err("Couldn't update tracing filter")

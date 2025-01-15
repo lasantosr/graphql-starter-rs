@@ -60,7 +60,7 @@ mod auth {
             extract::{AcceptLanguage, Extension},
             CorsState,
         },
-        error::{ApiError, GenericErrorCode, MapToErr},
+        error::{err, ApiError, GenericErrorCode, MapToErr},
         graphql::GraphQLBatchRequest,
         request_id::RequestId,
     };
@@ -198,17 +198,18 @@ mod auth {
             .get(http::header::ORIGIN)
             .map(|v| {
                 v.to_str()
-                    .map_to_err(GenericErrorCode::BadRequest, "Couldn't parse request cookies")
+                    .map_to_err_with(GenericErrorCode::BadRequest, "Couldn't parse request origin header")
             })
             .transpose()
         {
             Ok(o) => o,
-            Err(err) => return ApiError::from(err).into_response(),
+            Err(err) => return ApiError::from_err(err).into_response(),
         };
         // If it's present, check it's allowed
         if let Some(origin_header) = origin_header {
             if !cors.allowed_origins().iter().any(|o| o == origin_header) {
-                return ApiError::from((GenericErrorCode::Forbidden, "The origin is not allowed")).into_response();
+                return ApiError::from_err(err!(GenericErrorCode::Forbidden, "The origin is not allowed"))
+                    .into_response();
             }
         }
 
@@ -222,12 +223,12 @@ mod auth {
             .get(http::header::COOKIE)
             .map(|v| {
                 v.to_str()
-                    .map_to_err(AuthErrorCode::AuthMalformedCookies, "Couldn't parse request cookies")
+                    .map_to_err_with(AuthErrorCode::AuthMalformedCookies, "Couldn't parse request cookies")
             })
             .transpose()
         {
             Ok(c) => c,
-            Err(err) => return ApiError::from(err).into_response(),
+            Err(err) => return ApiError::from_err(err).into_response(),
         };
         let auth_cookie_value = cookies
             .and_then(|cookies| {

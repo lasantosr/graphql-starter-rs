@@ -14,7 +14,7 @@ use async_graphql::{
     InputValueError, InputValueResult, OutputType, Positioned, ServerResult, Value,
 };
 
-use crate::error::{Error, GenericErrorCode, MapToErr};
+use crate::error::{err, Error, GenericErrorCode, MapToErr};
 
 /// This type represents a [HashMap] in GraphQL
 #[derive(Debug, Clone, Default)]
@@ -175,14 +175,14 @@ where
 
             let key = key
                 .try_into()
-                .map_to_err(GenericErrorCode::BadRequest, "Invalid map key")?;
+                .map_to_err_with(GenericErrorCode::BadRequest, "Invalid map key")?;
             let value = value
                 .try_into()
-                .map_to_err(GenericErrorCode::BadRequest, "Invalid map value")?;
+                .map_to_err_with(GenericErrorCode::BadRequest, "Invalid map value")?;
 
             #[allow(clippy::map_entry)] // If we insert first, we no longer have the key to generate the error message
             if map.contains_key(&key) {
-                return Err((GenericErrorCode::BadRequest, format!("Duplicated key: {key}")).into());
+                return Err(err!(GenericErrorCode::BadRequest, "Duplicated key: {}", key));
             } else {
                 map.insert(key, value);
             }

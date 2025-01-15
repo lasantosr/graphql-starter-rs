@@ -5,7 +5,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum::{EnumIs, EnumTryAs};
 
 use super::{OpaqueCursor, PaginationErrorCode};
-use crate::error::{Error, MapToErr, Result};
+use crate::error::{err, Error, MapToErr, Result};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForwardPageQuery {
@@ -70,32 +70,32 @@ impl PageQuery {
         }
         // Check wether first and last values are valid
         match (&first, &last) {
-            (None, None) => return Err((PaginationErrorCode::PageMissing,).into()),
+            (None, None) => return Err(err!(PaginationErrorCode::PageMissing)),
             (Some(first), _) if first < &0 => {
-                return Err((PaginationErrorCode::PageNegativeInput { field: "first" },).into());
+                return Err(err!(PaginationErrorCode::PageNegativeInput { field: "first" }));
             }
             (_, Some(last)) if last < &0 => {
-                return Err((PaginationErrorCode::PageNegativeInput { field: "last" },).into());
+                return Err(err!(PaginationErrorCode::PageNegativeInput { field: "last" }));
             }
-            (Some(_), Some(_)) => return Err((PaginationErrorCode::PageFirstAndLast,).into()),
+            (Some(_), Some(_)) => return Err(err!(PaginationErrorCode::PageFirstAndLast)),
             _ => (),
         }
 
         // Check wether after and before values are valid
         if after.is_some() && before.is_some() {
-            return Err((PaginationErrorCode::PageAfterAndBefore,).into());
+            return Err(err!(PaginationErrorCode::PageAfterAndBefore));
         }
 
         if let Some(first) = first {
             // Validate maximum, if set
             if let Some(max) = max_page_size {
                 if first > max {
-                    return Err((PaginationErrorCode::PageExceedsLimit { field: "first", max },).into());
+                    return Err(err!(PaginationErrorCode::PageExceedsLimit { field: "first", max }));
                 }
             }
             // Forward paginating
             if before.is_some() {
-                Err((PaginationErrorCode::PageForwardWithBefore,).into())
+                Err(err!(PaginationErrorCode::PageForwardWithBefore))
             } else {
                 Ok(PageQuery::Forward(ForwardPageQuery { first, after }))
             }
@@ -103,12 +103,12 @@ impl PageQuery {
             // Validate maximum, if set
             if let Some(max) = max_page_size {
                 if last > max {
-                    return Err((PaginationErrorCode::PageExceedsLimit { field: "last", max },).into());
+                    return Err(err!(PaginationErrorCode::PageExceedsLimit { field: "last", max }));
                 }
             }
             // Backward paginating
             if after.is_some() {
-                Err((PaginationErrorCode::PageBackwardWithAfter,).into())
+                Err(err!(PaginationErrorCode::PageBackwardWithAfter))
             } else {
                 Ok(PageQuery::Backward(BackwardPageQuery { last, before }))
             }
@@ -131,12 +131,12 @@ impl PageQuery {
             .filter(|c| !c.is_empty())
             .map(OpaqueCursor::decode)
             .transpose()
-            .map_to_err(PaginationErrorCode::PageInvalidCursor, "Could not parse 'after' cursor")?;
+            .map_to_err_with(PaginationErrorCode::PageInvalidCursor, "Could not parse 'after' cursor")?;
         let before = before
             .filter(|c| !c.is_empty())
             .map(OpaqueCursor::decode)
             .transpose()
-            .map_to_err(
+            .map_to_err_with(
                 PaginationErrorCode::PageInvalidCursor,
                 "Could not parse 'before' cursor",
             )?;

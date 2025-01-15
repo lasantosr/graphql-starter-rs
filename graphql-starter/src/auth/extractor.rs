@@ -5,7 +5,7 @@ use axum::extract::{FromRef, FromRequestParts, State};
 use http::request::Parts;
 
 use super::{AuthErrorCode, AuthState, Subject};
-use crate::error::{ApiError, MapToErr, Result};
+use crate::error::{err, ApiError, MapToErr, Result};
 
 /// This extractor will try to authenticate the request by inspecting both the authentication header and cookie.
 ///
@@ -36,12 +36,15 @@ where
             .headers
             .get(auth_header_name)
             .map(|v| {
-                v.to_str().map_to_err(
-                    AuthErrorCode::AuthMalformedAuthHeader {
-                        auth_header: auth_header_name.into(),
-                    },
-                    "Couldn't parse auth header value",
-                )
+                v.to_str().map_err(|err| {
+                    err!(
+                        AuthErrorCode::AuthMalformedAuthHeader {
+                            auth_header: auth_header_name.into(),
+                        },
+                        "Couldn't parse auth header value"
+                    )
+                    .with_source(err)
+                })
             })
             .transpose()?
             .filter(|t| !t.is_empty());
@@ -53,7 +56,7 @@ where
             .get(http::header::COOKIE)
             .map(|v| {
                 v.to_str()
-                    .map_to_err(AuthErrorCode::AuthMalformedCookies, "Couldn't parse request cookies")
+                    .map_to_err_with(AuthErrorCode::AuthMalformedCookies, "Couldn't parse request cookies")
             })
             .transpose()?
             .and_then(|cookies| {
@@ -75,12 +78,10 @@ where
                     // If the authentication fails because the token is invalid, remove the auth cookie if set
                     // If the cookie is HttpOnly, clients are not able to remove it manually when invalid
                     if auth_cookie_value.is_some() && is_invalid_token {
-                        err = err
-                            .with_header(
-                                "Set-Cookie",
-                                format!("{auth_cookie_name}=invalid; Expires=Thu, 01 Jan 1970 00:00:00 GMT"),
-                            )
-                            .boxed();
+                        err = err.with_header(
+                            "Set-Cookie",
+                            format!("{auth_cookie_name}=invalid; Expires=Thu, 01 Jan 1970 00:00:00 GMT"),
+                        );
                     }
                     return Err(err);
                 }

@@ -116,7 +116,7 @@ macro_rules! sqlx_query_paginated_as {
                 }
             }
         }
-        .map_to_err(
+        .map_to_err_with(
             GenericErrorCode::InternalServerError,
             "Error fetching paginated query",
         )?;

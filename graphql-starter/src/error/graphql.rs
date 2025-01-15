@@ -14,40 +14,41 @@ pub type GraphQLResult<T, E = Box<GraphQLError>> = std::result::Result<T, E>;
 #[derive(Clone)]
 pub enum GraphQLError {
     Async(async_graphql::Error, SpanTrace),
-    Custom(Error),
+    Custom(Box<Error>),
 }
 
 impl GraphQLError {
     /// Creates a new [GraphQLError]
-    pub fn new(info: impl ErrorInfo + Send + Sync + 'static, unexpected: bool) -> Self {
-        Self::Custom(Error::new(info, unexpected))
+    pub fn new(info: impl ErrorInfo + Send + Sync + 'static) -> Box<Self> {
+        Box::new(Self::Custom(Error::new(info)))
     }
 
     /// Creates a new internal server error
-    pub fn internal(reason: impl Into<String>) -> Self {
-        Self::Custom(Error::internal(reason))
+    pub fn internal(reason: impl Into<String>) -> Box<Self> {
+        Box::new(Self::Custom(Error::internal(reason)))
+    }
+
+    /// Creates a new [GraphQLError]
+    pub fn from_err(error: Box<Error>) -> Box<Self> {
+        Box::new(Self::Custom(error))
     }
 
     /// Appends a property to the error
-    pub fn with_property(self, key: &str, value: serde_json::Value) -> Self {
-        match self {
+    #[allow(clippy::boxed_local)]
+    pub fn with_property(self: Box<Self>, key: &str, value: serde_json::Value) -> Box<Self> {
+        match *self {
             Self::Async(err, ctx) => {
                 let err = err.extend_with(|_, e| match async_graphql::Value::try_from(value) {
                     Ok(value) => e.set(key, value),
                     Err(err) => tracing::error!("Couldn't deserialize error value: {err}"),
                 });
-                Self::Async(err, ctx)
+                Box::new(Self::Async(err, ctx))
             }
             Self::Custom(err) => {
                 let err = err.with_property(key, value);
-                Self::Custom(err)
+                Box::new(Self::Custom(err))
             }
         }
-    }
-
-    /// Boxes this error
-    pub fn boxed(self) -> Box<Self> {
-        Box::new(self)
     }
 
     /// Checks wether this error is unexpected or not
@@ -95,52 +96,21 @@ impl GraphQLError {
     }
 }
 
-impl From<async_graphql::Error> for GraphQLError {
-    fn from(err: async_graphql::Error) -> Self {
-        GraphQLError::Async(err, SpanTrace::capture())
-    }
-}
 impl From<async_graphql::Error> for Box<GraphQLError> {
     fn from(err: async_graphql::Error) -> Self {
-        GraphQLError::from(err).boxed()
-    }
-}
-
-impl From<Box<Error>> for GraphQLError {
-    fn from(err: Box<Error>) -> Self {
-        (*err).into()
+        Box::new(GraphQLError::Async(err, SpanTrace::capture()))
     }
 }
 impl From<Box<Error>> for Box<GraphQLError> {
     fn from(err: Box<Error>) -> Self {
-        (*err).into()
-    }
-}
-
-impl<T> From<T> for GraphQLError
-where
-    T: Into<Error>,
-{
-    fn from(err: T) -> Self {
-        GraphQLError::Custom(err.into())
-    }
-}
-impl<T> From<T> for Box<GraphQLError>
-where
-    T: Into<Error>,
-{
-    fn from(err: T) -> Self {
-        GraphQLError::from(err).boxed()
+        GraphQLError::from_err(err)
     }
 }
 
 impl From<Box<GraphQLError>> for async_graphql::Error {
     fn from(value: Box<GraphQLError>) -> Self {
-        (*value).into()
-    }
-}
-impl From<GraphQLError> for async_graphql::Error {
-    fn from(e: GraphQLError) -> Self {
+        let e = *value;
+
         // Trace the error when converting to async_graphql error, which is done just before responding to requests
         let new_error = match &e {
             GraphQLError::Async(err, _) => err
@@ -166,7 +136,7 @@ impl From<GraphQLError> for async_graphql::Error {
                 if new_error {
                     // Hide the message and provide generic internal error info
                     err.source = Some(Arc::new(err.message));
-                    err.message = "Internal server error".into();
+                    err.message = GenericErrorCode::InternalServerError.raw_message().into();
                     (err, Some(Arc::new(GenericErrorCode::InternalServerError)))
                 } else {
                     // Already converted
@@ -174,6 +144,7 @@ impl From<GraphQLError> for async_graphql::Error {
                 }
             }
             GraphQLError::Custom(err) => {
+                let err = *err;
                 let source = err.source.map(|s| {
                     let source: Arc<dyn Any + Send + Sync> = Arc::new(s);
                     source

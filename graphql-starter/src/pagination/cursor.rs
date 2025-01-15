@@ -13,7 +13,7 @@ pub struct OpaqueCursor(Vec<u8>);
 impl OpaqueCursor {
     /// Decodes the given base64 string into an [OpaqueCursor]
     pub fn decode(cursor: impl AsRef<str>) -> Result<Self> {
-        let data = BASE64_URL_SAFE_NO_PAD.decode(cursor.as_ref()).map_to_err(
+        let data = BASE64_URL_SAFE_NO_PAD.decode(cursor.as_ref()).map_to_err_with(
             PaginationErrorCode::PageInvalidCursor,
             "Couldn't decode the cursor as base64",
         )?;
@@ -41,7 +41,7 @@ impl OpaqueCursor {
     where
         T: DeserializeOwned,
     {
-        serde_json::from_slice(&self.0).map_to_err(
+        serde_json::from_slice(&self.0).map_to_err_with(
             PaginationErrorCode::PageInvalidCursor,
             "Couldn't deserialize the cursor into the expected type",
         )

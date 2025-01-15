@@ -69,37 +69,56 @@ impl fmt::Debug for Error {
     }
 }
 impl Error {
-    /// Creates a new [Error]
-    pub fn new(info: impl ErrorInfo + Send + Sync + 'static, unexpected: bool) -> Self {
-        Self {
-            info: Arc::new(info),
+    /// Creates a new [`Box<Error>`](Error), which will be unexpected if the provided info has a server error status
+    pub fn new(info: impl ErrorInfo + Send + Sync + 'static) -> Box<Self> {
+        let info = Arc::new(info);
+        Box::new(Self {
+            unexpected: info.status().is_server_error(),
+            info,
             reason: None,
             properties: None,
-            unexpected,
             source: None,
             context: SpanTrace::capture(),
-        }
+        })
     }
 
     /// Creates a new internal server error
-    pub fn internal(reason: impl Into<String>) -> Self {
-        Self::new(GenericErrorCode::InternalServerError, true).with_reason(reason)
+    pub fn internal(reason: impl Into<String>) -> Box<Self> {
+        Self::new(GenericErrorCode::InternalServerError).with_reason(reason)
+    }
+
+    /// Marks this error as unexpected
+    pub fn unexpected(mut self: Box<Self>) -> Box<Self> {
+        self.unexpected = true;
+        self
+    }
+
+    /// Marks this error as expected
+    pub fn expected(mut self: Box<Self>) -> Box<Self> {
+        self.unexpected = false;
+        self
+    }
+
+    /// Updates the unexpected flag of the error
+    pub fn with_unexpected(mut self: Box<Self>, unexpected: bool) -> Box<Self> {
+        self.unexpected = unexpected;
+        self
     }
 
     /// Updates the reason of the error
-    pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
+    pub fn with_reason(mut self: Box<Self>, reason: impl Into<String>) -> Box<Self> {
         self.reason = Some(reason.into());
         self
     }
 
     /// Updates the source of the error
-    pub fn with_source<S: fmt::Display + Send + Sync + 'static>(mut self, source: S) -> Self {
+    pub fn with_source<S: fmt::Display + Send + Sync + 'static>(mut self: Box<Self>, source: S) -> Box<Self> {
         self.source = Some(Arc::new(source));
         self
     }
 
     /// Appends an string property to the error
-    pub fn with_str_property(mut self, key: &str, value: impl Into<String>) -> Self {
+    pub fn with_str_property(mut self: Box<Self>, key: &str, value: impl Into<String>) -> Box<Self> {
         self.properties
             .get_or_insert_with(HashMap::new)
             .insert(key.to_string(), serde_json::Value::String(value.into()));
@@ -107,16 +126,11 @@ impl Error {
     }
 
     /// Appends a property to the error
-    pub fn with_property(mut self, key: &str, value: serde_json::Value) -> Self {
+    pub fn with_property(mut self: Box<Self>, key: &str, value: serde_json::Value) -> Box<Self> {
         self.properties
             .get_or_insert_with(HashMap::new)
             .insert(key.to_string(), value);
         self
-    }
-
-    /// Boxes this error
-    pub fn boxed(self) -> Box<Self> {
-        Box::new(self)
     }
 
     /// Returns the error info
@@ -144,6 +158,7 @@ impl Error {
         self.reason.clone().unwrap_or(self.info.message())
     }
 }
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let status = self.info.status();
@@ -165,87 +180,114 @@ impl fmt::Display for Error {
         }
     }
 }
-impl From<&str> for Error {
-    fn from(reason: &str) -> Self {
-        Self::internal(reason)
-    }
-}
-impl From<String> for Error {
-    fn from(reason: String) -> Self {
-        Self::internal(reason)
-    }
-}
-impl<T: ErrorInfo + Send + Sync + 'static> From<(T,)> for Error {
-    fn from((code,): (T,)) -> Self {
-        let status = code.status();
-        Self::new(code, status.is_server_error())
-    }
-}
-impl<T: ErrorInfo + Send + Sync + 'static, S: Into<String>> From<(T, S)> for Error {
-    fn from((code, reason): (T, S)) -> Self {
-        let status = code.status();
-        Self::new(code, status.is_server_error()).with_reason(reason)
-    }
-}
-impl From<&str> for Box<Error> {
-    fn from(reason: &str) -> Self {
-        Error::from(reason).boxed()
-    }
-}
-impl From<String> for Box<Error> {
-    fn from(reason: String) -> Self {
-        Error::from(reason).boxed()
-    }
-}
-impl<T: ErrorInfo + Send + Sync + 'static> From<(T,)> for Box<Error> {
-    fn from(t: (T,)) -> Self {
-        Error::from(t).boxed()
-    }
-}
-impl<T: ErrorInfo + Send + Sync + 'static, S: Into<String>> From<(T, S)> for Box<Error> {
-    fn from(t: (T, S)) -> Self {
-        Error::from(t).boxed()
-    }
-}
+
+/// Creates a new [`Box<Error>`](Error), which will be unexpected if the provided info has a server error status.
+///
+/// # Examples
+///
+/// ```
+/// # use graphql_starter::{err, error::GenericErrorCode};
+/// # let ctx = "";
+/// # let id = "";
+/// // We can provide a reason
+/// err!("This is the reason for an unexpected internal server error");
+/// err!("This is also, with formatted text: {}", id);
+/// // Or some ErrorInfo
+/// err!(GenericErrorCode::BadRequest);
+/// err!(GenericErrorCode::Forbidden, "Not allowed");
+/// err!(GenericErrorCode::NotFound, "Missing id {}", id);
+/// ````
+#[macro_export]
+macro_rules! err (
+    ($reason:literal) => {
+        $crate::error::Error::internal($reason)
+    };
+    ($reason:literal,) => {
+        $crate::error::Error::internal($reason)
+    };
+    ($reason:literal, $($arg:tt)+) => {
+        $crate::error::Error::internal(format!($reason, $($arg)+))
+    };
+    ($info:expr) => {
+        $crate::error::Error::new($info)
+    };
+    ($info:expr, $reason:literal) => {
+        $crate::error::Error::new($info).with_reason($reason)
+    };
+    ($info:expr, $reason:literal,) => {
+        $crate::error::Error::new($info).with_reason($reason)
+    };
+    ($info:expr, $reason:literal, $($arg:tt)+) => {
+        $crate::error::Error::new($info).with_reason(format!($reason, $($arg)+))
+    };
+);
+pub(crate) use err;
 
 /// Utility trait to map any [`Result<T,E>`](std::result::Result) to a [`Result<T, Box<Error>>`]
 pub trait MapToErr<T> {
     /// Maps the error to an internal server error
-    fn map_to_internal_err(self, reason: impl Into<String>) -> Result<T>;
+    fn map_to_internal_err(self, reason: &'static str) -> Result<T>;
     /// Maps the error to the given one
-    fn map_to_err(self, code: impl ErrorInfo + Send + Sync + 'static, reason: impl Into<String>) -> Result<T>;
+    fn map_to_err(self, code: impl ErrorInfo + Send + Sync + 'static) -> Result<T>;
+    /// Maps the error to the given one with a reason
+    fn map_to_err_with(self, code: impl ErrorInfo + Send + Sync + 'static, reason: &'static str) -> Result<T>;
 }
 impl<T, E: fmt::Display + Send + Sync + 'static> MapToErr<T> for Result<T, E> {
-    fn map_to_internal_err(self, reason: impl Into<String>) -> Result<T> {
-        self.map_err(|err| Error::internal(reason.into()).with_source(err).boxed())
+    fn map_to_internal_err(self, reason: &'static str) -> Result<T> {
+        self.map_err(|source| Error::internal(reason).with_source(source))
     }
 
-    fn map_to_err(self, code: impl ErrorInfo + Send + Sync + 'static, reason: impl Into<String>) -> Result<T> {
-        self.map_err(|err| {
-            let unexpected = code.status().is_server_error();
-            Error::new(code, unexpected)
-                .with_reason(reason.into())
-                .with_source(err)
-                .boxed()
-        })
+    fn map_to_err(self, code: impl ErrorInfo + Send + Sync + 'static) -> Result<T> {
+        self.map_err(|source| Error::new(code).with_source(source))
+    }
+
+    fn map_to_err_with(self, code: impl ErrorInfo + Send + Sync + 'static, reason: &'static str) -> Result<T> {
+        self.map_err(|source| Error::new(code).with_reason(reason).with_source(source))
+    }
+}
+
+/// Utility trait to map any [`Option<T>`] to a [`Result<T, Box<Error>>`]
+pub trait OkOrErr<T> {
+    /// Transforms the option into a [Result], mapping [None] to an internal server error
+    fn ok_or_internal_err(self, reason: &'static str) -> Result<T>;
+    /// Transforms the option into a [Result], mapping [None] to the given error
+    fn ok_or_err(self, code: impl ErrorInfo + Send + Sync + 'static) -> Result<T>;
+    /// Transforms the option into a [Result], mapping [None] to the given error with a reason
+    fn ok_or_err_with(self, code: impl ErrorInfo + Send + Sync + 'static, reason: &'static str) -> Result<T>;
+}
+impl<T> OkOrErr<T> for Option<T> {
+    fn ok_or_internal_err(self, reason: &'static str) -> Result<T> {
+        self.ok_or_else(|| Error::internal(reason))
+    }
+
+    fn ok_or_err(self, code: impl ErrorInfo + Send + Sync + 'static) -> Result<T> {
+        self.ok_or_else(|| Error::new(code))
+    }
+
+    fn ok_or_err_with(self, code: impl ErrorInfo + Send + Sync + 'static, reason: &'static str) -> Result<T> {
+        self.ok_or_else(|| Error::new(code).with_reason(reason))
     }
 }
 
 /// Utility trait to extend a [Result]
 pub trait ResultExt {
+    /// Marks the error side of the result as unexpected
+    fn unexpected(self) -> Self;
+    /// Marks the error side of the result as expected
+    fn expected(self) -> Self;
     /// Appends an string property to the error side of the result
-    fn with_str_property(self, key: &str, value: impl Into<String>) -> Self
-    where
-        Self: Sized,
-    {
-        self.with_property(key, serde_json::Value::String(value.into()))
-    }
-
-    /// Appends a property to the error side of the result
-    fn with_property(self, key: &str, value: serde_json::Value) -> Self;
+    fn with_str_property(self, key: &'static str, value: &'static str) -> Self;
 }
 impl<T> ResultExt for Result<T> {
-    fn with_property(self, key: &str, value: serde_json::Value) -> Self {
-        self.map_err(|err| err.with_property(key, value).boxed())
+    fn unexpected(self) -> Self {
+        self.map_err(|err| err.unexpected())
+    }
+
+    fn expected(self) -> Self {
+        self.map_err(|err| err.expected())
+    }
+
+    fn with_str_property(self, key: &'static str, value: &'static str) -> Self {
+        self.map_err(|err| err.with_str_property(key, value))
     }
 }
