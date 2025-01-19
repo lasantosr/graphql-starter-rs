@@ -3,7 +3,7 @@ members = ["graphql-starter", "graphql-starter-macros"]
 resolver = "2"
 
 [workspace.package]
-version = "0.11.0"
+version = "0.12.0"
 edition = "2021"
 license = "MIT"
 readme = "README.md"
@@ -13,7 +13,7 @@ categories = ["rust-patterns", "web-programming"]
 exclude = [".vscode/*", ".rustfmt.toml", ".clippy.toml", ".taplo.toml"]
 
 [workspace.dependencies]
-graphql-starter-macros = { version = "=0.11.0", path = "./graphql-starter-macros", default-features = false }
+graphql-starter-macros = { version = "=0.12.0", path = "./graphql-starter-macros", default-features = false }
 
 accept-language    = "3"
 ansi-to-html       = "0.2"
@@ -30,7 +30,7 @@ darling            = "0.20"
 error-info         = "0.3"
 figment            = "0.10"
 futures-util       = "0.3"
-garde              = "0.21"
+garde              = "0.22"
 http               = "1"
 hyper              = "1"
 hyper-util         = "0.1.2"
