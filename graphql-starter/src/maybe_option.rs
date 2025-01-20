@@ -284,37 +284,6 @@ pub mod graphql {
     }
 }
 
-#[cfg(feature = "model-mapper")]
-pub mod mapper {
-    use model_mapper::with::{NestedWrapper, Wrapper};
-
-    use super::*;
-
-    impl<T> Wrapper<T> for MaybeOption<T> {
-        type Wrapper<U> = MaybeOption<U>;
-
-        fn map_inner<Z: Fn(T) -> U, U>(self, f: Z) -> Self::Wrapper<U> {
-            self.map(f)
-        }
-
-        fn try_map_inner<Z: Fn(T) -> Result<U, E>, U, E>(self, f: Z) -> Result<Self::Wrapper<U>, E> {
-            self.map(f).transpose()
-        }
-    }
-
-    impl<W: Wrapper<T>, T> NestedWrapper<W, T> for MaybeOption<W> {
-        type NestedWrapper<U> = MaybeOption<W::Wrapper<U>>;
-
-        fn map_wrapper<Z: Fn(T) -> U, U>(self, f: Z) -> Self::NestedWrapper<U> {
-            self.map(|i| i.map_inner(f))
-        }
-
-        fn try_map_wrapper<Z: Fn(T) -> Result<U, E>, U, E>(self, f: Z) -> Result<Self::NestedWrapper<U>, E> {
-            self.map(|i| i.try_map_inner(f)).transpose()
-        }
-    }
-}
-
 #[cfg(feature = "garde")]
 pub mod garde {
     use ::garde::{error::NoKey, rules::inner::Inner, Validate};
