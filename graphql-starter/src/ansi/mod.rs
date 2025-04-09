@@ -43,7 +43,7 @@ impl AnsiString {
     }
 
     pub fn as_html(&self) -> Result<String, Error> {
-        ansi_to_html::convert_with_opts(&self.0, &ansi_to_html::Opts::default())
+        ansi_to_html::Converter::new().convert(&self.0)
     }
 
     pub fn as_plaintext(&self) -> String {

@@ -1,21 +1,22 @@
-use std::sync::Arc;
-
 use anyhow::Result;
-use async_trait::async_trait;
+use auto_impl::auto_impl;
 use tower_http::cors::CorsLayer;
 
 /// CORS service
-#[async_trait]
-pub trait CorsService: Send + Sync {
+#[auto_impl(Box, Arc)]
+#[trait_variant::make(Send)]
+pub trait CorsService: Send + Sync + Sized + 'static {
     /// Retrieves the allowed origins for this API
     fn allowed_origins(&self) -> &[String];
     /// Builds the [CorsLayer]
     fn build_cors_layer(&self) -> Result<CorsLayer>;
 }
 
-/// Sub-state to retrieve cors-related service.
-///
-/// The application state must implement [FromRef](axum::extract::FromRef) for [CorsState]
-pub struct CorsState {
-    pub cors: Arc<dyn CorsService>,
+/// Trait implemented by the application State to provide cors-related services.
+pub trait CorsState {
+    /// The concrete CORS Service type
+    type Cors: CorsService;
+
+    /// Retrieves the CORS service
+    fn cors(&self) -> &Self::Cors;
 }

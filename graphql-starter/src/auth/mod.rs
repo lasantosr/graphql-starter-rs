@@ -2,7 +2,6 @@
 
 crate::using! {
     pub error,
-    pub subject,
-    pub common,
+    pub interfaces,
     pub extractor,
 }

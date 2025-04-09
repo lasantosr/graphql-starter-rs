@@ -25,26 +25,24 @@ impl<R> GraphQLRequest<R> {
 pub mod rejection {
     use async_graphql::ParseRequestError;
     use axum::{
-        body::Body,
-        http,
         http::StatusCode,
         response::{IntoResponse, Response},
     };
 
-    /// Rejection used for [`GraphQLRequest`](GraphQLRequest).
+    use crate::error::{ApiError, Error, GenericErrorCode};
+
+    /// Rejection used for [`GraphQLRequest`](super::GraphQLRequest).
     pub struct GraphQLRejection(pub ParseRequestError);
 
     impl IntoResponse for GraphQLRejection {
         fn into_response(self) -> Response {
             match self.0 {
-                ParseRequestError::PayloadTooLarge => http::Response::builder()
-                    .status(StatusCode::PAYLOAD_TOO_LARGE)
-                    .body(Body::empty())
-                    .unwrap(),
-                bad_request => http::Response::builder()
-                    .status(StatusCode::BAD_REQUEST)
-                    .body(Body::from(format!("{:?}", bad_request)))
-                    .unwrap(),
+                ParseRequestError::PayloadTooLarge => {
+                    tracing::warn!("[413 Payload Too Large] Received a GraphQL request with a payload too large");
+                    ApiError::new(StatusCode::PAYLOAD_TOO_LARGE, "Payload too large").into_response()
+                }
+                bad_request => ApiError::from_err(Error::new(GenericErrorCode::BadRequest).with_source(bad_request))
+                    .into_response(),
             }
         }
     }
@@ -56,7 +54,6 @@ pub mod rejection {
     }
 }
 
-#[async_trait::async_trait]
 impl<S, R> FromRequest<S> for GraphQLRequest<R>
 where
     S: Send + Sync,
@@ -87,7 +84,6 @@ impl<R> GraphQLBatchRequest<R> {
     }
 }
 
-#[async_trait::async_trait]
 impl<S, R> FromRequest<S> for GraphQLBatchRequest<R>
 where
     S: Send + Sync,

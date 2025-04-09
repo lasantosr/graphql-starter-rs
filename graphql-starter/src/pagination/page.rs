@@ -1,6 +1,5 @@
 use std::ops::Range;
 
-use iter_flow::Iterflow;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum::{EnumIs, EnumTryAs};
 
@@ -261,7 +260,7 @@ impl<T> Page<T> {
             self.page_info.has_previous_page,
             self.page_info.has_next_page,
             self.total_items,
-            self.edges.into_iter().map(map).finish_vec()?,
+            self.edges.into_iter().map(map).collect::<Result<Vec<_>, _>>()?,
         ))
     }
 
@@ -287,7 +286,10 @@ impl<T> Page<T> {
             self.page_info.has_previous_page,
             self.page_info.has_next_page,
             self.total_items,
-            self.edges.into_iter().map(move |e| e.try_map(&map)).finish_vec()?,
+            self.edges
+                .into_iter()
+                .map(move |e| e.try_map(&map))
+                .collect::<Result<Vec<_>, _>>()?,
         ))
     }
 
@@ -355,7 +357,7 @@ impl<T> Page<T> {
                     node: item,
                 })
             })
-            .finish()?;
+            .collect::<Result<Vec<_>, _>>()?;
 
         // 4. Return edges
         Ok(Self::new(start > 0, end < items_len, total_items, edges))
@@ -406,7 +408,7 @@ where
                     node,
                 })
             })
-            .finish_vec()
+            .collect::<Result<Vec<_>, _>>()
     }
 }
 

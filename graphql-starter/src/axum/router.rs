@@ -4,7 +4,6 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use axum::{
     body::Body,
-    extract::FromRef,
     middleware::{self, Next},
     serve::WithGracefulShutdown,
     Router,
@@ -19,7 +18,7 @@ use tower_http::{
 };
 use tracing::Level;
 
-use super::{extract::Json, CorsState};
+use super::{extract::Json, CorsService, CorsState};
 use crate::{
     error::GenericErrorCode,
     request_id::{RequestId, RequestIdLayer},
@@ -40,12 +39,8 @@ pub fn build_router<S>(
     request_body_limit_bytes: usize,
 ) -> Result<Router>
 where
-    S: Clone + Send + Sync + 'static,
-    CorsState: FromRef<S>,
+    S: CorsState + Clone + Send + Sync + 'static,
 {
-    // Extract the cors service
-    let CorsState { cors } = FromRef::from_ref(&state);
-
     // Build common layers
     let layers = ServiceBuilder::new()
         // Generate random ids to each request
@@ -79,7 +74,7 @@ where
         // Limit incoming requests size
         .layer(RequestBodyLimitLayer::new(request_body_limit_bytes))
         // Add CORS layer as well
-        .layer(cors.build_cors_layer().context("couldn't build CORS layer")?)
+        .layer(state.cors().build_cors_layer().context("couldn't build CORS layer")?)
         // Add a timeout so requests don't hang forever
         .layer(TimeoutLayer::new(request_timeout, GenericErrorCode::GatewayTimeout));
 
@@ -138,7 +133,7 @@ async fn check_custom_header(
 pub async fn build_http_server(
     router: Router,
     port: u16,
-) -> anyhow::Result<WithGracefulShutdown<Router, Router, impl Future<Output = ()>>> {
+) -> anyhow::Result<WithGracefulShutdown<TcpListener, Router, Router, impl Future<Output = ()>>> {
     let listener = TcpListener::bind(format!("0.0.0.0:{port}"))
         .await
         .context("Can't bind TCP listener")?;

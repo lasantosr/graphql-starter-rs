@@ -3,15 +3,15 @@
 //! It avoids having to use [WithRejection](https://docs.rs/axum-extra/latest/axum_extra/extract/struct.WithRejection.html)
 //! every time
 
-use std::sync::Arc;
+use std::{convert::Infallible, sync::Arc};
 
 use axum::{
-    extract::{FromRequest, FromRequestParts, Request},
+    extract::{FromRequest, FromRequestParts, OptionalFromRequest, OptionalFromRequestParts, Request},
     response::{IntoResponse, Response},
 };
 use bytes::{BufMut, BytesMut};
 use error_info::ErrorInfo;
-use http::{header, request::Parts, HeaderValue};
+use http::{header, request::Parts, HeaderValue, StatusCode};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::error::{ApiError, GenericErrorCode, MapToErr};
@@ -21,7 +21,6 @@ use crate::error::{ApiError, GenericErrorCode, MapToErr};
 #[must_use]
 pub struct Json<T>(pub T);
 
-#[axum::async_trait]
 impl<S, T> FromRequest<S> for Json<T>
 where
     T: DeserializeOwned,
@@ -30,9 +29,27 @@ where
     type Rejection = Box<ApiError>;
 
     async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
-        ::axum::Json::<T>::from_request(req, state)
+        <::axum::Json<T> as FromRequest<S>>::from_request(req, state)
             .await
             .map(|::axum::Json(value)| Json(value))
+            .map_err(|err| {
+                tracing::info!("Couldn't parse json request: {err}");
+                ApiError::new(err.status(), err.body_text())
+            })
+    }
+}
+
+impl<T, S> OptionalFromRequest<S> for Json<T>
+where
+    T: DeserializeOwned,
+    S: Send + Sync,
+{
+    type Rejection = Box<ApiError>;
+
+    async fn from_request(req: Request, state: &S) -> Result<Option<Self>, Self::Rejection> {
+        <::axum::Json<T> as OptionalFromRequest<S>>::from_request(req, state)
+            .await
+            .map(|v| v.map(|::axum::Json(value)| Json(value)))
             .map_err(|err| {
                 tracing::info!("Couldn't parse json request: {err}");
                 ApiError::new(err.status(), err.body_text())
@@ -65,7 +82,6 @@ where
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Query<T>(pub T);
 
-#[axum::async_trait]
 impl<T, S> FromRequestParts<S> for Query<T>
 where
     T: DeserializeOwned,
@@ -78,7 +94,11 @@ where
             .await
             .map(|::axum::extract::Query(value)| Query(value))
             .map_err(|err| {
-                tracing::info!("Couldn't parse request query: {err}");
+                tracing::warn!(
+                    "[{} {}] Couldn't parse request query: {err}",
+                    err.status().as_str(),
+                    err.status().canonical_reason().unwrap_or("Unknown")
+                );
                 ApiError::new(err.status(), err.body_text())
             })
     }
@@ -88,7 +108,6 @@ where
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Path<T>(pub T);
 
-#[axum::async_trait]
 impl<T, S> FromRequestParts<S> for Path<T>
 where
     T: DeserializeOwned + Send,
@@ -97,11 +116,37 @@ where
     type Rejection = Box<ApiError>;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        ::axum::extract::Path::<T>::from_request_parts(parts, state)
+        <::axum::extract::Path<T> as FromRequestParts<S>>::from_request_parts(parts, state)
             .await
             .map(|::axum::extract::Path(value)| Path(value))
             .map_err(|err| {
-                tracing::warn!("Couldn't extract request path: {err}");
+                tracing::error!(
+                    "[{} {}] Couldn't extract request path: {err}",
+                    err.status().as_str(),
+                    err.status().canonical_reason().unwrap_or("Unknown")
+                );
+                ApiError::new(err.status(), err.body_text())
+            })
+    }
+}
+
+impl<T, S> OptionalFromRequestParts<S> for Path<T>
+where
+    T: DeserializeOwned + Send + 'static,
+    S: Send + Sync,
+{
+    type Rejection = Box<ApiError>;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Option<Self>, Self::Rejection> {
+        <::axum::extract::Path<T> as OptionalFromRequestParts<S>>::from_request_parts(parts, state)
+            .await
+            .map(|v| v.map(|::axum::extract::Path(value)| Path(value)))
+            .map_err(|err| {
+                tracing::error!(
+                    "[{} {}] Couldn't extract request path: {err}",
+                    err.status().as_str(),
+                    err.status().canonical_reason().unwrap_or("Unknown")
+                );
                 ApiError::new(err.status(), err.body_text())
             })
     }
@@ -111,7 +156,6 @@ where
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Extension<T>(pub T);
 
-#[axum::async_trait]
 impl<T, S> FromRequestParts<S> for Extension<T>
 where
     T: Clone + Send + Sync + 'static,
@@ -120,30 +164,33 @@ where
     type Rejection = Box<ApiError>;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        ::axum::Extension::<T>::from_request_parts(parts, state)
+        <::axum::Extension<T> as FromRequestParts<S>>::from_request_parts(parts, state)
             .await
             .map(|::axum::Extension(value)| Extension(value))
             .map_err(|err| {
-                tracing::warn!("Couldn't extract extension: {err}");
+                tracing::error!("[500 Internal Server Error] Couldn't extract extension: {err}");
                 ApiError::new(err.status(), GenericErrorCode::InternalServerError.raw_message())
             })
     }
 }
 
-/// Extractor for an optional [Extension]
-#[derive(Debug, Clone, Copy, Default)]
-pub struct ExtensionOpt<T>(pub Option<T>);
-
-#[axum::async_trait]
-impl<T, S> FromRequestParts<S> for ExtensionOpt<T>
+impl<T, S> OptionalFromRequestParts<S> for Extension<T>
 where
     T: Clone + Send + Sync + 'static,
     S: Send + Sync,
 {
     type Rejection = Box<ApiError>;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        Ok(ExtensionOpt(parts.extensions.get::<T>().cloned()))
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Option<Self>, Self::Rejection> {
+        <::axum::Extension<T> as OptionalFromRequestParts<S>>::from_request_parts(parts, state)
+            .await
+            .map(|v| v.map(|::axum::Extension(value)| Extension(value)))
+            .map_err(|_: Infallible| {
+                ApiError::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    GenericErrorCode::InternalServerError.raw_message(),
+                )
+            })
     }
 }
 
@@ -162,7 +209,6 @@ impl AcceptLanguage {
     }
 }
 
-#[axum::async_trait]
 impl<S> FromRequestParts<S> for AcceptLanguage
 where
     S: Send + Sync,

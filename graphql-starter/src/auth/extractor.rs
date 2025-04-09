@@ -1,37 +1,25 @@
-use std::{marker::PhantomData, sync::Arc};
-
-use async_trait::async_trait;
-use axum::extract::{FromRef, FromRequestParts, State};
+use axum::extract::{FromRequestParts, OptionalFromRequestParts};
 use http::request::Parts;
 
-use super::{AuthErrorCode, AuthState, Subject};
-use crate::error::{err, ApiError, MapToErr, Result};
+use super::{AuthErrorCode, AuthState, AuthenticationService, Subject};
+use crate::error::{err, ApiError, MapToErr, OkOrErr, Result};
 
-/// This extractor will try to authenticate the request by inspecting both the authentication header and cookie.
+/// This extractor will authenticate the request by inspecting both the authentication header and cookie.
 ///
-/// It will add a new extension with the optional subject ([`Arc<Option<Subject>>`](Subject)).
-pub struct CheckAuth<S: Subject> {
-    // This field is needed in order to preserve type generics to the compiler
-    sub_type: PhantomData<S>,
-}
+/// It also implements [OptionalFromRequestParts] so it can be optionally extracted, returning [None] if there is no
+/// auth header or cookie, but failing if they're present but not valid.
+pub struct Auth<S: Subject>(pub S);
 
-#[async_trait]
-impl<S, St> FromRequestParts<St> for CheckAuth<S>
+impl<S, St> OptionalFromRequestParts<St> for Auth<S>
 where
     S: Subject,
-    St: Send + Sync,
-    AuthState<S>: FromRef<St>,
+    St: AuthState<S> + Send + Sync,
 {
     type Rejection = Box<ApiError>;
 
-    async fn from_request_parts(parts: &mut Parts, state: &St) -> Result<Self, Self::Rejection> {
-        // Extract the auth sub-state
-        let State(AuthState { authn, authz: _ }) = State::from_request_parts(parts, state)
-            .await
-            .map_to_internal_err("infallible")?;
-
+    async fn from_request_parts(parts: &mut Parts, state: &St) -> Result<Option<Self>, Self::Rejection> {
         // Extract the auth header (if any)
-        let auth_header_name = authn.header_name();
+        let auth_header_name = state.authn().header_name();
         let auth_token = parts
             .headers
             .get(auth_header_name)
@@ -50,7 +38,7 @@ where
             .filter(|t| !t.is_empty());
 
         // Extract the auth cookie (if any)
-        let auth_cookie_name = authn.cookie_name();
+        let auth_cookie_name = state.authn().cookie_name();
         let auth_cookie_value = parts
             .headers
             .get(http::header::COOKIE)
@@ -67,10 +55,10 @@ where
             .filter(|c| !c.is_empty());
 
         // Authenticate the subject
-        let sub = if auth_token.is_none() && auth_cookie_value.is_none() {
-            None
+        if auth_token.is_none() && auth_cookie_value.is_none() {
+            Ok(None)
         } else {
-            let subject = match authn.authenticate(auth_token, auth_cookie_value).await {
+            let subject = match state.authn().authenticate(auth_token, auth_cookie_value).await {
                 Ok(s) => s,
                 Err(err) => {
                     let is_invalid_token = err.info().code() == "AUTH_INVALID_TOKEN";
@@ -87,10 +75,21 @@ where
                 }
             };
             tracing::trace!("Authenticated as {subject}");
-            Some(subject)
-        };
-        parts.extensions.insert(Arc::new(sub));
+            Ok(Some(Self(subject)))
+        }
+    }
+}
 
-        Ok(Self { sub_type: PhantomData })
+impl<S, St> FromRequestParts<St> for Auth<S>
+where
+    S: Subject,
+    St: AuthState<S> + Send + Sync,
+{
+    type Rejection = Box<ApiError>;
+
+    async fn from_request_parts(parts: &mut Parts, state: &St) -> Result<Self, Self::Rejection> {
+        Ok(<Self as OptionalFromRequestParts<St>>::from_request_parts(parts, state)
+            .await?
+            .ok_or_err_with(AuthErrorCode::AuthMissing, "The subject must be authenticated")?)
     }
 }

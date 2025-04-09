@@ -171,6 +171,7 @@ impl QueriedFields {
         }
     }
 
+    #[cfg(feature = "graphql")]
     /// Returns the [QueriedFields] for the [Edge's](crate::pagination::Edge) `node` in a
     /// [Page](crate::pagination::Page).
     ///
