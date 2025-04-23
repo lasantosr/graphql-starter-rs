@@ -29,7 +29,7 @@ pub mod rejection {
         response::{IntoResponse, Response},
     };
 
-    use crate::error::{ApiError, Error, GenericErrorCode};
+    use crate::error::ApiError;
 
     /// Rejection used for [`GraphQLRequest`](super::GraphQLRequest).
     pub struct GraphQLRejection(pub ParseRequestError);
@@ -41,8 +41,11 @@ pub mod rejection {
                     tracing::warn!("[413 Payload Too Large] Received a GraphQL request with a payload too large");
                     ApiError::new(StatusCode::PAYLOAD_TOO_LARGE, "Payload too large").into_response()
                 }
-                bad_request => ApiError::from_err(Error::new(GenericErrorCode::BadRequest).with_source(bad_request))
-                    .into_response(),
+                bad_request => {
+                    let msg = bad_request.to_string();
+                    tracing::warn!("[400 Bad Request] {msg}");
+                    ApiError::new(StatusCode::BAD_REQUEST, msg).into_response()
+                }
             }
         }
     }
